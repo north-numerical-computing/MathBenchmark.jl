@@ -1,0 +1,20 @@
+{
+    "test-binary16RN-exhaustive-nofastmath" : {
+        "format" : "binary16",
+        "rounding" : "RN",
+        "fastmath" : 0,
+        "search" : "exhaustive"
+    },
+    "test-binary32RN-seconds-nofastmath" : {
+        "format" : "binary32",
+        "rounding" : "RN",
+        "fastmath" : 0,
+        "search" : "seconds"
+    },
+    "test-binary64RN-seconds-nofastmath" : {
+        "format" : "binary64",
+        "rounding" : "RN",
+        "fastmath" : 0,
+        "search" : "seconds"
+    }
+}
