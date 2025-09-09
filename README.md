@@ -46,9 +46,9 @@ Options `exhaustive` tells the benchmark to test all possible inputs in the func
 
 ### References
 
- [1] M. Mikaitis and T. Rizyal, [*Accuracy of Mathematical Functions in Julia*](https://arxiv.org/pdf/). In preparation. September, 2025.
- 
- [2] B. Gladman, V. Innocente, J. Mather, and P. Zimmermann. [*Accuracy of mathematical functions in single, double, double extended, and quadruple precision*](https://members.loria.fr/PZimmermann/papers/accuracy.pdf). Preprint. Aug. 2025.
+ [1] M. Mikaitis and T. Rizyal, [*Accuracy of Mathematical Functions in Julia*](https://arxiv.org/pdf/2509.05666). 	arXiv:2509.05666 [cs.MS]. Sep., 2025.
+
+ [2] B. Gladman, V. Innocente, J. Mather, and P. Zimmermann. [*Accuracy of mathematical functions in single, double, double extended, and quadruple precision*](https://members.loria.fr/PZimmermann/papers/accuracy.pdf). Preprint. Aug., 2025.
 
 ### License
 
