@@ -7,7 +7,7 @@ In order to run Julia mathematical function accuracy tests start by modifying [c
 Then, run the script [MathBenchmark.jl](./MathBenchmark.jl) to start the testing specified in [config.json](./config.json). The code is threaded and can be run by
 
 ```
-julia --threads=auto MathBenchmark.jl
+julia --threads=auto run.jl
 ```
 
 Once the testing completes, the results can be found in the [output](./output) directory which will contain the text files for each of the test cases specified in [config.jl](./config.jl). The obtained results can be compared with the accuracy of thirteen mathematical function libraries that were analysed by Gladman, Innocente, Mather, and Zimmermann [2].
