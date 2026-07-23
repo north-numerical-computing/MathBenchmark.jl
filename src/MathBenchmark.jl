@@ -113,7 +113,7 @@ config_file = "config.json"
 tasks = FileIO.read_input_file(config_file)
 mkpath("output")
 
-function run_benchmark()
+function run_mathbenchmark()
 
     max_error[] =
         [PaddedFloat64(0.0, ntuple(_ -> 0.0, 7)) for _ in 1: Threads.nthreads()+1]

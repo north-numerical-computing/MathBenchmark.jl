@@ -6,5 +6,5 @@ Pkg.activate(@__DIR__)
 Pkg.instantiate()
 
 using MathBenchmark
-MathBenchmark.run_benchmark()
+MathBenchmark.run_mathbenchmark()
 
