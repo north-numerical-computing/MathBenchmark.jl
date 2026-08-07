@@ -116,7 +116,7 @@ function calculate_function(x, func, rounding, fastmath_on)
         y = getfield(Base.Math, Symbol(func))(x)
     end
     if isinf(y)
-        @warn "Overflow in the matematical function output detected:\
+        @warn "The Julia mathematical function has produced infinity:\
                $func. Skipping input $x."
         return (0.0, y, NaN)
     end
@@ -144,6 +144,7 @@ function function_max_error_exhaustive(
     max_output = 0.0;
     max_ref_out::BigFloat = 0.0;
     number_of_tests = 0;
+    number_of_infs = 0;
 
     f_format = Err.formats[format]
 
@@ -152,6 +153,9 @@ function function_max_error_exhaustive(
     while x <= end_float
         (error, y, z) = calculate_function(x, Symbol(func), rounding, fastmath_on)
         number_of_tests = number_of_tests + 1
+        if (isnan(z))
+            number_of_infs = number_of_infs + 1
+        end
 
         # Update max error and corresponding values.
         if error > max_error
@@ -164,7 +168,7 @@ function function_max_error_exhaustive(
         x = nextfloat(x);
     end
 
-    return (max_error, max_input, max_output, max_ref_out, number_of_tests)
+    return (max_error, max_input, max_output, max_ref_out, number_of_tests, number_of_infs)
 end
 
 
@@ -180,6 +184,7 @@ function function_max_error_fixed_step(
     max_input = 0.0;
     max_output = 0.0;
     max_ref_out::BigFloat = 0.0;
+    number_of_infs = 0;
 
     u_format = Err.uint_formats[format]
     f_format = Err.formats[format]
@@ -190,6 +195,10 @@ function function_max_error_fixed_step(
 
     while x <= end_float
         (error, y, z) = calculate_function(x, Symbol(func), rounding, fastmath_on)
+
+        if (isnan(z))
+            number_of_infs = number_of_infs + 1
+        end
 
         # Update max error and corresponding values.
         if error > max_error
@@ -202,7 +211,7 @@ function function_max_error_fixed_step(
         x = nextfloatn(x, step_size, format)
     end
 
-    return (max_error, max_input, max_output, max_ref_out, tests_to_do)
+    return (max_error, max_input, max_output, max_ref_out, tests_to_do, number_of_infs)
 end
 
 
@@ -219,12 +228,16 @@ function function_max_error_special_inputs(
     max_output = 0.0;
     max_ref_out::BigFloat = 0.0;
     number_of_tests = 0;
+    number_of_infs = 0;
 
     f_format = Err.formats[format]
 
     for x in input_set
         (error, y, z) = calculate_function(x, Symbol(func), rounding, fastmath_on)
         number_of_tests = number_of_tests + 1
+        if (isnan(z))
+            number_of_infs = number_of_infs + 1
+        end
 
         # Update max error and corresponding values.
         if error > max_error
@@ -235,7 +248,7 @@ function function_max_error_special_inputs(
         end
     end
 
-    return (max_error, max_input, max_output, max_ref_out, number_of_tests)
+    return (max_error, max_input, max_output, max_ref_out, number_of_tests, number_of_infs)
 end
 
 

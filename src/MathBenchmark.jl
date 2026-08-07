@@ -41,6 +41,7 @@ const max_input      = Ref{Vector{PaddedFloat64}}()
 const max_output     = Ref{Vector{PaddedFloat64}}()
 const max_ref_out    = Ref{Vector{PaddedFloat64}}()
 const number_of_tests = Ref{Vector{PaddedFloat64}}()
+const number_of_infs = Ref{Vector{PaddedFloat64}}()
 
 function spawn_threads(start_float, end_float, t_num_floats,
                        func_name, data_format, rounding, fastmath_on,
@@ -48,7 +49,7 @@ function spawn_threads(start_float, end_float, t_num_floats,
 
     for tn in 1:Threads.nthreads()
 
-        # Calculate the sub-interval ends for this thread.
+        # Calculate the sub-interval end for this thread.
         sub_int_start = Err.nextfloatn(start_float, (tn-1)*t_num_floats, data_format)
         if tn==Threads.nthreads()
             sub_int_end = end_float
@@ -63,7 +64,8 @@ function spawn_threads(start_float, end_float, t_num_floats,
                                     max_input[][tn].val,
                                     max_output[][tn].val,
                                     max_ref_out[][tn].val,
-                                    number_of_tests[][tn].val) =
+                                    number_of_tests[][tn].val,
+                                    number_of_infs.[][tn].val) =
                                         Err.function_max_error_exhaustive(
                                             func_name, data_format, rounding, fastmath_on,
                                             sub_int_start, sub_int_end)
@@ -72,7 +74,8 @@ function spawn_threads(start_float, end_float, t_num_floats,
                                     max_input[][tn].val,
                                     max_output[][tn].val,
                                     max_ref_out[][tn].val,
-                                    number_of_tests[][tn].val) =
+                                    number_of_tests[][tn].val,
+                                    number_of_infs[][tn].val) =
                                         Err.function_max_error_fixed_step(
                                             func_name, data_format, rounding, fastmath_on,
                                             sub_int_start, sub_int_end, tests_to_do)
@@ -85,7 +88,8 @@ function spawn_threads(start_float, end_float, t_num_floats,
                  max_input[][tn].val,
                  max_output[][tn].val,
                  max_ref_out[][tn].val,
-                 number_of_tests[][tn].val) =
+                 number_of_tests[][tn].val,
+                 number_of_infs[][tn].val) =
                      Err.function_max_error_exhaustive(
                          func_name, data_format, rounding, fastmath_on,
                          sub_int_start, sub_int_end)
@@ -94,7 +98,8 @@ function spawn_threads(start_float, end_float, t_num_floats,
                  max_input[][tn].val,
                  max_output[][tn].val,
                  max_ref_out[][tn].val,
-                 number_of_tests[][tn].val) =
+                 number_of_tests[][tn].val,
+                 number_of_infs[][tn].val) =
                      Err.function_max_error_fixed_step(
                          func_name, data_format, rounding, fastmath_on,
                          sub_int_start, sub_int_end, tests_to_do)
@@ -104,7 +109,7 @@ function spawn_threads(start_float, end_float, t_num_floats,
 
     wait.(thread_tasks)
 
-    return (max_error, max_input, max_output, max_ref_out, number_of_tests)
+    return (max_error, max_input, max_output, max_ref_out, number_of_tests, number_of_infs)
 end
 
 config_file = "config.json"
@@ -124,6 +129,8 @@ function run_mathbenchmark()
     max_ref_out[] =
         [PaddedFloat64(0.0, ntuple(_ -> 0.0, 7)) for _ in 1: Threads.nthreads()+1]
     number_of_tests[] =
+        [PaddedFloat64(0.0, ntuple(_ -> 0.0, 7)) for _ in 1: Threads.nthreads()+1]
+    number_of_infs[] =
         [PaddedFloat64(0.0, ntuple(_ -> 0.0, 7)) for _ in 1: Threads.nthreads()+1]
 
     for (task_name, task_details) in tasks
@@ -158,11 +165,11 @@ function run_mathbenchmark()
 
         # Results table formatting. Each task specied in the JSON file has
         # a result .txt file named accordingly.
-        fe = FormatExpr("{1:<10s} {2:>15s} {3:>30s} {4:>30s} {5:>30s} {6:>20s}\n")
+        fe = FormatExpr("{1:<10s} {2:>15s} {3:>30s} {4:>30s} {5:>30s} {6:>20s} {7:>20s}\n")
         result_table_head = format(fe, "Function", "ULPs", "Input", "Output",
-                                   "MPFR", "Tests")
-        fe = FormatExpr("{1:<10s} {2:>15s} {3:>30s} {4:>30s} {5:>20s}\n")
-        result_table_head_hex = format(fe, "Function", "ULPs", "Input", "Output",
+                                   "MPFR", "Tests", "Infs")
+        fe_hex = FormatExpr("{1:<10s} {2:>15s} {3:>30s} {4:>30s} {5:>20s}\n")
+        result_table_head_hex = format(fe_hex, "Function", "ULPs", "Input", "Output",
                                        "Tests")
         open("output/$task_name.txt", "w") do file
             write(file, result_table_head)
@@ -171,7 +178,7 @@ function run_mathbenchmark()
             write(file_hex, result_table_head_hex)
         end
         fe = FormatExpr("{1:<10s} {2:>15.10f} {3:>30.15e} \
-                    {4:>30.15e} {5:>30.15e} {6:>20d}\n")
+                    {4:>30.15e} {5:>30.15e} {6:>20d} {7:>20d}\n")
         fe_hex = FormatExpr("{1:<10s} {2:>15.10f} {3:>#30x} {4:>#30x} \
                     {5:>20d}\n")
 
@@ -229,7 +236,8 @@ function run_mathbenchmark()
                  max_input[][Threads.nthreads()+1].val,
                  max_output[][Threads.nthreads()+1].val,
                  max_ref_out[][Threads.nthreads()+1].val,
-                 number_of_tests[][Threads.nthreads()+1].val) =
+                 number_of_tests[][Threads.nthreads()+1].val,
+                 number_of_infs[][Threads.nthreads()+1].val) =
                      Err.function_max_error_special_inputs(
                          func_name, data_format, rounding, fastmath_on, input_set)
             end
@@ -237,7 +245,8 @@ function run_mathbenchmark()
             # Find index of the maximum error and report to the output file.
             i = findmax([s.val for s in max_error[]])[2]
             line = format(fe, func_name, max_error[][i].val, max_input[][i].val, max_output[][i].val,
-                          max_ref_out[][i].val, sum([s.val for s in number_of_tests[]]))
+                          max_ref_out[][i].val, sum([s.val for s in number_of_tests[]]),
+                          sum([s.val for s in number_of_infs[]]))
             open("output/$task_name.txt", "a") do file
                 write(file, line);
             end
@@ -246,7 +255,8 @@ function run_mathbenchmark()
                                       Err.formats[data_format](max_input[][i].val)),
                           reinterpret(Err.uint_formats[data_format],
                                       Err.formats[data_format](max_output[][i].val)),
-                          sum([s.val for s in number_of_tests[]]))
+                          sum([s.val for s in number_of_tests[]]),
+                          sum([s.val for s in number_of_infs[]]))
             open("output/HEX_$task_name.txt", "a") do file_hex
                 write(file_hex, line);
             end
