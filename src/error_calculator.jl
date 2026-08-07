@@ -191,7 +191,7 @@ function function_max_error_fixed_step(
 
     x = start_float
 
-    step_size = max(floor(number_of_floats_in_interval(x, end_float, format)/tests_to_do), 1);
+    step_size = max(ceil(number_of_floats_in_interval(x, end_float, format)/tests_to_do), 1);
 
     while x <= end_float
         (error, y, z) = calculate_function(x, Symbol(func), rounding, fastmath_on)
