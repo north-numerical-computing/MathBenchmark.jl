@@ -45,10 +45,10 @@ function validate_tasks(task)
             end
         f = v
         elseif k == "search"
-            if !(v in search_list)
+            if !(v in search_list || isinteger(v))
                 printstyled("INVALID $k\n", color=:red)
                 printstyled("Invalid search: $v\n", color=:red)
-                println("Valid search: $search_list")
+                println("Valid search: $search_list or an integer value")
                 return f, s, r, fm
             end
         s = v

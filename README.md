@@ -41,7 +41,7 @@ The `format` field can be set to `binary16`, `binary32`, or `binary64`. The `rou
 
 The field `fastmath` can be set either to `0` or `1` to turn the Julia's fastmath feature off or on, respectively.
 
-The `search` field can be set to `seconds`, `minutes`, `hours`, `days`, or `exhaustive`; the first four options determine the approximate duration of testing one mathematical function. For example, the `seconds` option will mean that the input domain of each function is traversed in a fixed-size step which allows the testing of each function to take approximately one second.
+The `search` field can be set to `seconds`, `minutes`, `hours`, `days`, `exhaustive`, or to an integer value; the first four options determine the approximate duration of testing one mathematical function. For example, the `seconds` option will mean that the input domain of each function is traversed in a fixed-size step which allows the testing of each function to take approximately one second. This is a very rough approximation - it is achieved by measuring the time to test the particular function on 100000 inputs and extrapolating. The `search` field also accepts an integer value for the number of tests to undertake in each thread, which will instruct the benchmark to run exactly that number per thread.
 Options `exhaustive` tells the benchmark to test all possible inputs in the function's input domain, provided exactly in [functions.jl](./functions.jl) for a particular floating-point format.
 
 ### References

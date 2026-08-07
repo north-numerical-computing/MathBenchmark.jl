@@ -201,7 +201,9 @@ function run_mathbenchmark()
             t_num_floats = floor(num_floats/Threads.nthreads())
 
             tests_to_do = 0
-            if search != "exhaustive"
+            if isinteger(search)
+                tests_to_do = search;
+            elseif search != "exhaustive"
                 tests_to_do = check_run_time(ns_budget, start_float, end_float, t_num_floats,
                                              func_name, data_format, rounding, fastmath_on, search)
             end
