@@ -113,12 +113,12 @@ function spawn_threads(start_float, end_float, t_num_floats,
 end
 
 config_file = "config.json"
-
-# Read and validate testing tasks specified in the json file.
-tasks = FileIO.read_input_file(config_file)
 mkpath("output")
 
 function run_mathbenchmark()
+
+    # Read and validate testing tasks specified in the json file.
+    tasks = FileIO.read_input_file(config_file)
 
     max_error[] =
         [PaddedFloat64(0.0, ntuple(_ -> 0.0, 7)) for _ in 1: Threads.nthreads()+1]
