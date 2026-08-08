@@ -244,13 +244,14 @@ function run_mathbenchmark()
 
             # Find index of the maximum error and report to the output file.
             i = findmax([s.val for s in max_error[]])[2]
-            line = format(fe, func_name, max_error[][i].val, max_input[][i].val, max_output[][i].val,
+            line = format(fe, func_name, trunc(max_error[][i].val, digits=10),
+                          max_input[][i].val, max_output[][i].val,
                           max_ref_out[][i].val, sum([s.val for s in number_of_tests[]]),
                           sum([s.val for s in number_of_infs[]]))
             open("output/$task_name.txt", "a") do file
                 write(file, line);
             end
-            line = format(fe_hex, func_name, max_error[][i].val,
+            line = format(fe_hex, func_name, trunc(max_error[][i].val, digits=10),
                           reinterpret(Err.uint_formats[data_format],
                                       Err.formats[data_format](max_input[][i].val)),
                           reinterpret(Err.uint_formats[data_format],

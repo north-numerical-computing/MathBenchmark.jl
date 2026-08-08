@@ -168,6 +168,7 @@ function function_max_error_exhaustive(
         x = nextfloat(x);
     end
 
+    max_error = Float64(max_error, RoundToZero)
     return (max_error, max_input, max_output, max_ref_out, number_of_tests, number_of_infs)
 end
 
@@ -211,6 +212,7 @@ function function_max_error_fixed_step(
         x = nextfloatn(x, step_size, format)
     end
 
+    max_error = Float64(max_error, RoundToZero)
     return (max_error, max_input, max_output, max_ref_out, tests_to_do, number_of_infs)
 end
 
@@ -248,6 +250,7 @@ function function_max_error_special_inputs(
         end
     end
 
+    max_error = Float64(max_error, RoundToZero)
     return (max_error, max_input, max_output, max_ref_out, number_of_tests, number_of_infs)
 end
 
