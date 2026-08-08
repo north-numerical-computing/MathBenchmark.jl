@@ -65,7 +65,7 @@ function spawn_threads(start_float, end_float, t_num_floats,
                                     max_output[][tn].val,
                                     max_ref_out[][tn].val,
                                     number_of_tests[][tn].val,
-                                    number_of_infs.[][tn].val) =
+                                    number_of_infs[][tn].val) =
                                         Err.function_max_error_exhaustive(
                                             func_name, data_format, rounding, fastmath_on,
                                             sub_int_start, sub_int_end)
@@ -153,11 +153,11 @@ function run_mathbenchmark()
 
         # Set MPFR global precision to be 20 bits more than the specified format's.
         if (data_format == "binary16")
-            setprecision(BigFloat, 31)
+            setprecision(BigFloat, 64)
         elseif (data_format == "binary32")
-            setprecision(BigFloat, 44)
+            setprecision(BigFloat, 64)
         else
-            setprecision(BigFloat, 73)
+            setprecision(BigFloat, 128)
         end
 
         printstyled("Format: $data_format Search: $search Rounding: \
