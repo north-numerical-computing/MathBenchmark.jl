@@ -211,8 +211,11 @@ function run_mathbenchmark()
             if isa(search, Integer)
                 tests_to_do = search;
             elseif search != "exhaustive"
-                tests_to_do = min(num_floats/Threads.nthreads(), check_run_time(ns_budget, start_float, end_float, t_num_floats,
-                                                             func_name, data_format, rounding, fastmath_on, search))
+                tests_to_do = check_run_time(ns_budget, start_float, end_float, t_num_floats,
+                                             func_name, data_format, rounding, fastmath_on, search)
+                if tests_to_do*Threads.nthreads() > num_floats
+                    search = "exhaustive"
+                end
             end
 
             if search == "exhaustive"
