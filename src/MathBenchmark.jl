@@ -35,7 +35,6 @@ function check_run_time(ns_budget, start_float, end_float, t_num_floats,
     return floor(ns_budget/elapsed_time)
 end
 
-thread_tasks = Task[]
 const max_error      = Ref{Vector{PaddedFloat64}}()
 const max_input      = Ref{Vector{PaddedFloat64}}()
 const max_output     = Ref{Vector{PaddedFloat64}}()
@@ -47,6 +46,7 @@ function spawn_threads(start_float, end_float, t_num_floats,
                        func_name, data_format, rounding, fastmath_on,
                        tests_to_do, search)
 
+    thread_tasks = Task[]
     for tn in 1:Threads.nthreads()
 
         # Calculate the sub-interval end for this thread.
