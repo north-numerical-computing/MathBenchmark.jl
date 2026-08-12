@@ -153,11 +153,11 @@ function run_mathbenchmark()
 
         # Set MPFR global precision to be 20 bits more than the specified format's.
         if (data_format == "binary16")
-            setprecision(BigFloat, 64)
+            setprecision(BigFloat, 63)
         elseif (data_format == "binary32")
-            setprecision(BigFloat, 64)
+            setprecision(BigFloat, 63)
         else
-            setprecision(BigFloat, 128)
+            setprecision(BigFloat, 127)
         end
 
         printstyled("Format: $data_format Search: $search Rounding: \
