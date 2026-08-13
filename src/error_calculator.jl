@@ -78,15 +78,15 @@ function nextfloatn(x, n, format)
     u_format = Err.uint_formats[format]
     neg_zero = Err.neg_zeros[format]
 
-    if (sign(x) == -1)
+    if (signbit(x))
         x_int = reinterpret(u_format, x) - u_format(n)
     else
         x_int = reinterpret(u_format, x) + u_format(n)
     end
     y = reinterpret(typeof(x), x_int)
 
-    if sign(x) != sign(y) && !iszero(x)
-        if sign(x) == 1
+    if !signbit(x) != signbit(y)
+        if signbit(x)
             return typeof(x)(Inf)
         else
             x_int = neg_zero - x_int
