@@ -118,7 +118,7 @@ function calculate_function(x, func, rounding, fastmath_on)
     if isinf(y)
         @warn "The Julia mathematical function has produced infinity:\
                $func. Skipping input $x."
-        return (0.0, y, NaN)
+        return (BigFloat(0.0), y, BigFloat(NaN))
     end
 
     bigx = BigFloat(x)
@@ -139,7 +139,7 @@ the maximum ulp error for the given function.
 function function_max_error_exhaustive(
     func, format, rounding, fastmath_on, start_float, end_float)
 
-    max_error = 0.0
+    max_error::BigFloat = 0.0
     max_input = 0.0;
     max_output = 0.0;
     max_ref_out::BigFloat = 0.0;
@@ -182,7 +182,7 @@ and evaluate the maximum ulp error for the given function.
 function function_max_error_fixed_step(
     func, format, rounding, fastmath_on, start_float, end_float, tests_to_do)
 
-    max_error = 0.0
+    max_error::BigFloat = 0.0
     max_input = 0.0;
     max_output = 0.0;
     max_ref_out::BigFloat = 0.0;
@@ -227,7 +227,7 @@ the maximum ulp error for the given function.
 function function_max_error_special_inputs(
     func, format, rounding, fastmath_on, input_set)
 
-    max_error = 0.0
+    max_error::BigFloat = 0.0
     max_input = 0.0;
     max_output = 0.0;
     max_ref_out::BigFloat = 0.0;
