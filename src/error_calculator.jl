@@ -111,9 +111,9 @@ function calculate_function(x, func, rounding, fastmath_on)
     # Julia currently does not provide separate mathematical functions with
     # different rounding modes.
     if fastmath_on
-        y = @fastmath(getfield(Base.Math, Symbol(func))(x))
+        y = @fastmath(func(x))
     else
-        y = getfield(Base.Math, Symbol(func))(x)
+        y = func(x)
     end
     if isinf(y)
         @warn "The Julia mathematical function has produced infinity:\
@@ -122,7 +122,7 @@ function calculate_function(x, func, rounding, fastmath_on)
     end
 
     bigx = BigFloat(x)
-    z = getfield(Base.Math, Symbol(func))(bigx)
+    z = func(bigx)
 
     # Calculate the error in ulps.
     error = get_ulp_error(y, z)
@@ -150,8 +150,9 @@ function function_max_error_exhaustive(
 
     x = start_float
 
+    f = getfield(Base.Math, Symbol(func));
     while x <= end_float
-        (error, y, z) = calculate_function(x, Symbol(func), rounding, fastmath_on)
+        (error, y, z) = calculate_function(x, f, rounding, fastmath_on)
         number_of_tests = number_of_tests + 1
         if (isnan(z))
             number_of_infs = number_of_infs + 1
@@ -194,8 +195,9 @@ function function_max_error_fixed_step(
 
     step_size = ceil(number_of_floats_in_interval(x, end_float, format)/tests_to_do);
 
+    f = getfield(Base.Math, Symbol(func))
     while x <= end_float
-        (error, y, z) = calculate_function(x, Symbol(func), rounding, fastmath_on)
+        (error, y, z) = calculate_function(x, f, rounding, fastmath_on)
 
         if (isnan(z))
             number_of_infs = number_of_infs + 1
@@ -234,8 +236,9 @@ function function_max_error_special_inputs(
 
     f_format = Err.formats[format]
 
+    f = getfield(Base.Math, Symbol(func))
     for x in input_set
-        (error, y, z) = calculate_function(x, Symbol(func), rounding, fastmath_on)
+        (error, y, z) = calculate_function(x, f, rounding, fastmath_on)
         number_of_tests = number_of_tests + 1
         if (isnan(z))
             number_of_infs = number_of_infs + 1
