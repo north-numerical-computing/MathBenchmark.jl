@@ -170,7 +170,7 @@ function function_max_error_exhaustive(
     end
 
     max_error = Float64(max_error, RoundToZero)
-    return (max_error, max_input, max_output, max_ref_out, number_of_tests, number_of_infs)
+    return (max_error, max_input, max_output, Float64(max_ref_out), number_of_tests, number_of_infs)
 end
 
 
@@ -215,7 +215,7 @@ function function_max_error_fixed_step(
     end
 
     max_error = Float64(max_error, RoundToZero)
-    return (max_error, max_input, max_output, max_ref_out, tests_to_do, number_of_infs)
+    return (max_error, max_input, max_output, Float64(max_ref_out), tests_to_do, number_of_infs)
 end
 
 
@@ -254,7 +254,7 @@ function function_max_error_special_inputs(
     end
 
     max_error = Float64(max_error, RoundToZero)
-    return (max_error, max_input, max_output, max_ref_out, number_of_tests, number_of_infs)
+    return (max_error, max_input, max_output, Float64(max_ref_out), number_of_tests, number_of_infs)
 end
 
 

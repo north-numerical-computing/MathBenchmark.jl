@@ -243,6 +243,8 @@ function run_mathbenchmark()
                  number_of_infs[][Threads.nthreads()+1].val) =
                      Err.function_max_error_special_inputs(
                          func_name, data_format, rounding, fastmath_on, input_set)
+            else
+                number_of_infs[][Threads.nthreads()+1].val = 0.0
             end
 
             # Find index of the maximum error and report to the output file.
