@@ -85,8 +85,8 @@ function nextfloatn(x, n, format)
     end
     y = reinterpret(typeof(x), x_int)
 
-    if !signbit(x) != signbit(y)
-        if signbit(x)
+    if signbit(x) != signbit(y)
+        if !signbit(x)
             return typeof(x)(Inf)
         else
             x_int = neg_zero - x_int
