@@ -1,0 +1,6 @@
+[deps]
+MathBenchmark = "c0c1d0ce-02cd-4668-98cf-2ce407c554ca"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[sources]
+MathBenchmark = {path = ".."}

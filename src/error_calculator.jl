@@ -100,21 +100,45 @@ end
 
 
 """
-Given an input value x in one of the three floating-point formats,
-calculate y, the approximation of the function for that format, and
-z, the high precision correctly rounded variant in BigFloat (MPFR).
+    resolve_function(name, fastmath_on)
+
+Return the Julia function to test. With `fastmath_on = true` the `Base.FastMath`
+variant is used when one exists (this is what `@fastmath name(x)` would call);
+functions without a fast variant (`sinpi`, `cospi`, `tanpi`) are returned as is.
+"""
+function resolve_function(name::AbstractString, fastmath_on::Bool)
+    sym = Symbol(name)
+    isdefined(Base.Math, sym) || throw(ArgumentError("unknown function: $name"))
+    f = getfield(Base.Math, sym)
+    if fastmath_on
+        fast = get(Base.FastMath.fast_op, sym, nothing)
+        fast === nothing || (f = getfield(Base.FastMath, fast))
+    end
+    return f
+end
+
 
 """
-function calculate_function(x, func, rounding, fastmath_on)
+    reference_function(name)
+
+Return the function used to compute the correctly rounded reference in BigFloat.
+"""
+reference_function(name::AbstractString) = getfield(Base.Math, Symbol(name))
+
+
+"""
+Given an input value x in one of the three floating-point formats,
+calculate y, the approximation of the function `func` for that format, and
+z, the high precision correctly rounded variant in BigFloat (MPFR) computed
+with `func_ref`.
+
+"""
+function calculate_function(x, func, func_ref, rounding)
 
     # Note: here the rounding mode could be changed before calling func, but
     # Julia currently does not provide separate mathematical functions with
     # different rounding modes.
-    if fastmath_on
-        y = @fastmath(func(x))
-    else
-        y = func(x)
-    end
+    y = func(x)
     if isinf(y)
         @warn "The Julia mathematical function has produced infinity:\
                $func. Skipping input $x."
@@ -122,7 +146,7 @@ function calculate_function(x, func, rounding, fastmath_on)
     end
 
     bigx = BigFloat(x)
-    z = func(bigx)
+    z = func_ref(bigx)
 
     # Calculate the error in ulps.
     error = get_ulp_error(y, z)
@@ -150,9 +174,10 @@ function function_max_error_exhaustive(
 
     x = start_float
 
-    f = getfield(Base.Math, Symbol(func));
+    f = resolve_function(func, fastmath_on)
+    f_ref = reference_function(func)
     while x <= end_float
-        (error, y, z) = calculate_function(x, f, rounding, fastmath_on)
+        (error, y, z) = calculate_function(x, f, f_ref, rounding)
         number_of_tests = number_of_tests + 1
         if (isnan(z))
             number_of_infs = number_of_infs + 1
@@ -195,9 +220,10 @@ function function_max_error_fixed_step(
 
     step_size = ceil(number_of_floats_in_interval(x, end_float, format)/tests_to_do);
 
-    f = getfield(Base.Math, Symbol(func))
+    f = resolve_function(func, fastmath_on)
+    f_ref = reference_function(func)
     while x <= end_float
-        (error, y, z) = calculate_function(x, f, rounding, fastmath_on)
+        (error, y, z) = calculate_function(x, f, f_ref, rounding)
 
         if (isnan(z))
             number_of_infs = number_of_infs + 1
@@ -236,9 +262,10 @@ function function_max_error_special_inputs(
 
     f_format = Err.formats[format]
 
-    f = getfield(Base.Math, Symbol(func))
+    f = resolve_function(func, fastmath_on)
+    f_ref = reference_function(func)
     for x in input_set
-        (error, y, z) = calculate_function(x, f, rounding, fastmath_on)
+        (error, y, z) = calculate_function(x, f, f_ref, rounding)
         number_of_tests = number_of_tests + 1
         if (isnan(z))
             number_of_infs = number_of_infs + 1
