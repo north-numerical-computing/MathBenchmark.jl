@@ -1,7 +1,7 @@
 module MathBenchmark
 
 include("file_io.jl")
-using .FileIO
+using .Config
 
 include("functions.jl")
 using .Functions
@@ -11,7 +11,6 @@ using .Err
 
 using Printf
 using Format
-using Match
 using Logging
 
 
@@ -121,8 +120,9 @@ files (`<task>.txt` and `HEX_<task>.txt`) per task in `output_dir`.
 function run_mathbenchmark(config_file::AbstractString = "config.json";
                            output_dir::AbstractString = "output")
 
-    # Read and validate testing tasks specified in the json file.
-    tasks = FileIO.read_input_file(config_file)
+    # Read and validate the testing tasks specified in the json file. Invalid
+    # tasks throw an error before anything is run.
+    tasks = Config.read_config(config_file)
     mkpath(output_dir)
 
     max_error[] =
@@ -138,23 +138,14 @@ function run_mathbenchmark(config_file::AbstractString = "config.json";
     number_of_infs[] =
         [PaddedFloat64(0.0, ntuple(_ -> 0.0, 7)) for _ in 1: Threads.nthreads()+1]
 
-    for (task_name, task_details) in tasks
+    for task in tasks
 
-        printstyled("Validating task: $task_name\n", color=:blue)
-        (data_format, search, rounding, fastmath_on) =
-            FileIO.validate_tasks(task_details)
-
-        @match rounding begin
-            "RN" => :RoundNearest
-            "RZ" => :RoundToZero
-            "RD" => :RoundDown
-            "RU" => :RoundUp
-        end
-
-        if data_format == 1
-            printstyled("Skipping task: $task_name\n\n", color=:red)
-            continue
-        end
+        task_name = task.name
+        data_format = task.format
+        search = task.search
+        rounding = task.rounding
+        fastmath_on = task.fastmath
+        printstyled("Running task: $task_name\n", color=:blue)
 
         # Set MPFR global precision to be 20 bits more than the specified format's.
         if (data_format == "binary16")
