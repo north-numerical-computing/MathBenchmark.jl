@@ -6,6 +6,7 @@ using Printf
 
 using Libdl
 const libmpfr_handle = Libdl.dlopen(:libmpfr)
+const dlsym_lock = ReentrantLock()
 
 neg_zeros = Dict{String, Any}()
 neg_zeros["binary16"] = UInt16(0x8000)
@@ -58,7 +59,9 @@ const MPFR_UNARY = Dict(
 )
 
 function mpfr_fptr(name::Symbol)
-    return Libdl.dlsym(libmpfr_handle, name)
+    return lock(dlsym_lock) do
+        Libdl.dlsym(libmpfr_handle, name)
+    end
 end
 
 """
