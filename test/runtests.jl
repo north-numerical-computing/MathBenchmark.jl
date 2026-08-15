@@ -52,6 +52,21 @@ end
         @test_throws ArgumentError with_config(Config.read_config, """[1, 2]""")
     end
 
+    @testset "domains" begin
+        F = MathBenchmark.Functions
+        for (format, T) in (("binary16", Float16), ("binary32", Float32), ("binary64", Float64))
+            domains = F.functions_dict[format]
+            @test length(domains) == 24
+            for (name, (lo, hi)) in domains
+                @test lo isa T && hi isa T && isfinite(lo) && isfinite(hi) && lo <= hi
+                @test all(x -> x isa T && isfinite(x), F.special_inputs(T, name))
+            end
+            @test domains["log"][1] === nextfloat(zero(T)) && domains["sqrt"][2] === floatmax(T)
+        end
+        @test isempty(F.special_inputs(Float16, "exp"))
+        @test F.special_inputs(Float64, "sqrt") isa Vector{Float64}
+    end
+
     @testset "resolve_function" begin
         @test Err.resolve_function("exp", false) === exp
         @test Err.resolve_function("exp", true) === Base.FastMath.exp_fast
