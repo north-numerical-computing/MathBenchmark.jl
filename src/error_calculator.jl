@@ -1,6 +1,6 @@
 module Err
 
-const IEEEFloat = Union{Float16, Float32, Float64}
+const IEEEFloat = Base.IEEEFloat
 
 # Low-level MPFR access for the allocation-free reference.
 const libmpfr = Base.MPFR.libmpfr
