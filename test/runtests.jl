@@ -137,6 +137,56 @@ end
         end
     end
 
+    @testset "MPFR reference" begin
+        @test_throws ArgumentError Err.MPFRReference("nosuchfunction", 63)
+        # Every function has an in-place MPFR counterpart that agrees with the
+        # BigFloat method of Base (both are correctly rounded).
+        setprecision(BigFloat, 63) do
+            for name in Err.MPFR_FUNCTIONS
+                x = name === :acosh ? 1.5f0 : 0.5f0
+                ws = Err.new_reference(Err.MPFRReference(String(name), 63))
+                f = getfield(Base.Math, name)
+                @test Err.evaluate(ws, x) == f(BigFloat(x))
+            end
+        end
+        # ulp of the reference vs eps of the rounded value.
+        for (T, prec) in ((Float16, 63), (Float32, 63), (Float64, 127))
+            setprecision(BigFloat, prec) do
+                for z in (big"1.0", big"1.5", -big"3.0", big"1.0" - big"2.0"^-60, BigFloat(floatmin(T)),
+                          BigFloat(floatmin(T)) / 3, BigFloat(nextfloat(zero(T))), big"0.0", BigFloat(floatmax(T)))
+                    expected = eps(T(abs(z)))
+                    # Just below a power of two the ulp is that of the lower binade.
+                    z == big"1.0" - big"2.0"^-60 && (expected /= 2)
+                    @test Err.ulp(T, z) == expected
+                end
+            end
+        end
+        # The in-place path gives the same results as the allocating one.
+        for (T, f, name, lo, hi) in ((Float16, exp, "exp", Float16(-3), Float16(3)),
+                                     (Float32, log1p, "log1p", -0.5f0, 3f0),
+                                     (Float64, sinpi, "sinpi", -2.5, 2.5),
+                                     # Subnormal results: |y - z| is not a Float64.
+                                     (Float64, exp, "exp", -745.0, -700.0),
+                                     (Float32, exp2, "exp2", -149f0, -120f0))
+            prec = Err.reference_precision(T)
+            setprecision(BigFloat, prec) do
+                step = max(1, cld(Err.number_of_floats(lo, hi), 500))
+                r_big = MathBenchmark.test_domain(Err.BigFloatReference(f), f, T, lo, hi, step; nchunks=3)
+                r_mpfr = MathBenchmark.test_domain(Err.MPFRReference(name, prec), f, T, lo, hi, step; nchunks=3)
+                @test r_mpfr.max_error == r_big.max_error
+                @test r_mpfr.input === r_big.input && r_mpfr.output === r_big.output
+                @test r_mpfr.reference == r_big.reference
+                @test r_mpfr.ntests == r_big.ntests && r_mpfr.ninfs == r_big.ninfs
+            end
+        end
+        # The in-place path does not allocate per test.
+        ref = Err.MPFRReference("exp", 127)
+        Err.test_range(ref, exp, Float64, 0, 10, 1)
+        a1 = @allocated Err.test_range(ref, exp, Float64, 0, 200, 1)
+        a2 = @allocated Err.test_range(ref, exp, Float64, 0, 20_000, 1)
+        @test a2 - a1 < 4096
+    end
+
     @testset "kernels" begin
         T = Float16
         f = sin

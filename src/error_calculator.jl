@@ -2,6 +2,12 @@ module Err
 
 const IEEEFloat = Union{Float16, Float32, Float64}
 
+# Low-level MPFR access for the allocation-free reference.
+const libmpfr = Base.MPFR.libmpfr
+const MPFRRoundingMode = Base.MPFR.MPFRRoundingMode
+const RNDN = Base.MPFR.MPFRRoundNearest
+const RNDZ = Base.MPFR.MPFRRoundToZero
+
 # ---------------------------------------------------------------------------
 # Format helpers
 # ---------------------------------------------------------------------------
@@ -24,6 +30,11 @@ at word boundaries (64, 128) are avoided on purpose.
 reference_precision(::Type{Float16}) = 63
 reference_precision(::Type{Float32}) = 63
 reference_precision(::Type{Float64}) = 127
+
+# Exponent (base 2) of the smallest positive subnormal, i.e. `exponent(nextfloat(zero(T)))`.
+min_subnormal_exponent(::Type{Float16}) = -24
+min_subnormal_exponent(::Type{Float32}) = -149
+min_subnormal_exponent(::Type{Float64}) = -1074
 
 # ---------------------------------------------------------------------------
 # Ordinals: a bijection between the floating-point numbers of a format and a
@@ -111,6 +122,81 @@ new_reference(ref::BigFloatReference) = ref
 @inline ulp_error(::BigFloatReference, y::IEEEFloat, z::BigFloat) = Float64(get_ulp_error(y, z), RoundToZero)
 
 """
+Reference computed in place with the MPFR routine `mpfr_<name>` at precision
+`prec` bits, without allocations: each task gets its own `MPFRWorkspace`.
+"""
+struct MPFRReference{name}
+    prec::Int
+end
+function MPFRReference(name::AbstractString, prec::Integer)
+    sym = Symbol(name)
+    sym in MPFR_FUNCTIONS || throw(ArgumentError("no MPFR reference for function: $name"))
+    return MPFRReference{sym}(prec)
+end
+
+# Julia functions with an MPFR counterpart `mpfr_<name>(r, x, rounding)`.
+const MPFR_FUNCTIONS = (:acos, :acosh, :asin, :asinh, :atan, :atanh, :cbrt, :cos, :cosh,
+                        :exp, :exp10, :exp2, :log, :log10, :log1p, :log2, :sin, :sinh,
+                        :sqrt, :tan, :tanh, :cospi, :sinpi, :tanpi)
+for f in MPFR_FUNCTIONS
+    mpfr_f = QuoteNode(Symbol(:mpfr_, f))
+    @eval @inline mpfr_apply!(::Val{$(QuoteNode(f))}, r::BigFloat, x::BigFloat) =
+        ccall(($mpfr_f, libmpfr), Int32, (Ref{BigFloat}, Ref{BigFloat}, MPFRRoundingMode), r, x, RNDN)
+end
+
+struct MPFRWorkspace{name}
+    x::BigFloat   # input, exact
+    z::BigFloat   # reference output
+    d::BigFloat   # z - y
+end
+new_reference(ref::MPFRReference{name}) where {name} =
+    MPFRWorkspace{name}(BigFloat(precision=ref.prec), BigFloat(precision=ref.prec), BigFloat(precision=ref.prec))
+
+@inline function evaluate(ws::MPFRWorkspace{name}, x::IEEEFloat) where {name}
+    ccall((:mpfr_set_d, libmpfr), Int32, (Ref{BigFloat}, Float64, MPFRRoundingMode), ws.x, Float64(x), RNDN)
+    mpfr_apply!(Val(name), ws.z, ws.x)
+    return ws.z
+end
+
+# `|y - z|` is formed in MPFR (exact whenever y is within the reference precision
+# of z), scaled by the power-of-two ulp of z (exact) and truncated to a Float64,
+# which gives exactly `get_ulp_error(y, z)` truncated to 53 bits. Scaling before
+# the conversion matters for subnormal results, where |y - z| itself may not be
+# representable as a Float64.
+@inline function ulp_error(ws::MPFRWorkspace, y::T, z::BigFloat) where {T<:IEEEFloat}
+    ccall((:mpfr_sub_d, libmpfr), Int32, (Ref{BigFloat}, Ref{BigFloat}, Float64, MPFRRoundingMode),
+          ws.d, z, Float64(y), RNDN)
+    ccall((:mpfr_mul_2si, libmpfr), Int32, (Ref{BigFloat}, Ref{BigFloat}, Clong, MPFRRoundingMode),
+          ws.d, ws.d, -ulp_exponent(T, z), RNDN)
+    return abs(ccall((:mpfr_get_d, libmpfr), Float64, (Ref{BigFloat}, MPFRRoundingMode), ws.d, RNDZ))
+end
+
+"""
+    ulp_exponent(T, z::BigFloat) -> Int
+
+Base-2 exponent of the unit in the last place of the binade of `z` in format `T`
+(the ulp is `2^ulp_exponent(T, z)`), with the spacing of the subnormals below
+`floatmin(T)`. Exact powers of two get the spacing of the binade above them
+(`ulp(T, 2^k) == eps(T(2^k))`), consistently with `get_ulp_error`.
+"""
+@inline function ulp_exponent(::Type{T}, z::BigFloat) where {T<:IEEEFloat}
+    emin = min_subnormal_exponent(T)
+    if ccall((:mpfr_zero_p, libmpfr), Int32, (Ref{BigFloat},), z) != 0
+        return emin
+    end
+    # z = m * 2^e with 0.5 <= |m| < 1, so floor(log2|z|) = e - 1.
+    e = Int(ccall((:mpfr_get_exp, libmpfr), Clong, (Ref{BigFloat},), z))
+    return max(e - precision(T), emin)
+end
+
+"""
+    ulp(T, z::BigFloat) -> Float64
+
+Unit in the last place of the binade of `z` in format `T`, see [`ulp_exponent`](@ref).
+"""
+ulp(::Type{T}, z::BigFloat) where {T<:IEEEFloat} = ldexp(1.0, ulp_exponent(T, z))
+
+"""
     get_ulp_error(y::T, z::BigFloat) -> BigFloat
 
 Error in ulps between the computed value `y` and the high-precision reference `z`.
@@ -180,8 +266,7 @@ Result(acc::Accumulator{T}) where {T} =
 # Copy of a BigFloat with the same precision (BigFloat(z) would alias z).
 function copy_bigfloat(z::BigFloat)
     r = BigFloat(precision=precision(z))
-    ccall((:mpfr_set, Base.MPFR.libmpfr), Int32,
-          (Ref{BigFloat}, Ref{BigFloat}, Base.MPFR.MPFRRoundingMode), r, z, Base.MPFR.MPFRRoundNearest)
+    ccall((:mpfr_set, libmpfr), Int32, (Ref{BigFloat}, Ref{BigFloat}, MPFRRoundingMode), r, z, RNDN)
     return r
 end
 

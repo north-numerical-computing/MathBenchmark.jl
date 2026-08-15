@@ -83,7 +83,7 @@ strategy `search` (see `Config.BenchmarkTask`), then on its special inputs.
 """
 function run_function(func_name::AbstractString, ::Type{T}, lo::T, hi::T, search, fastmath_on::Bool) where {T}
     f = Err.resolve_function(func_name, fastmath_on)
-    reference = Err.BigFloatReference(Err.reference_function(func_name))
+    reference = Err.MPFRReference(func_name, Err.reference_precision(T))
     nthreads = Threads.nthreads()
     num_floats = Err.number_of_floats(lo, hi)
 
@@ -164,26 +164,23 @@ function run_task(task::Config.BenchmarkTask, output_dir::AbstractString)
     fe_hex = FormatExpr("{1:<10s} {2:>15.10f} {3:>#30x} {4:>#30x} \
                     {5:>20d}\n")
 
-    # The BigFloat reference uses the default precision.
-    setprecision(BigFloat, Err.reference_precision(T)) do
-        # Loop through the functions list of a particular format.
-        for (func_name, (lo, hi)) in Functions.functions_dict[task.format]
-            r = run_function(func_name, T, lo, hi, task.search, task.fastmath)
+    # Loop through the functions list of a particular format.
+    for (func_name, (lo, hi)) in Functions.functions_dict[task.format]
+        r = run_function(func_name, T, lo, hi, task.search, task.fastmath)
 
-            # Report the maximum error and the corresponding values to the output files.
-            max_error = trunc(r.max_error, digits=10)
-            line = format(fe, func_name, max_error, Float64(r.input), Float64(r.output),
-                          Float64(r.reference), r.ntests, r.ninfs)
-            open(file, "a") do io
-                write(io, line)
-            end
-            line = format(fe_hex, func_name, max_error,
-                          reinterpret(Base.uinttype(T), r.input),
-                          reinterpret(Base.uinttype(T), r.output),
-                          r.ntests)
-            open(file_hex, "a") do io
-                write(io, line)
-            end
+        # Report the maximum error and the corresponding values to the output files.
+        max_error = trunc(r.max_error, digits=10)
+        line = format(fe, func_name, max_error, Float64(r.input), Float64(r.output),
+                      Float64(r.reference), r.ntests, r.ninfs)
+        open(file, "a") do io
+            write(io, line)
+        end
+        line = format(fe_hex, func_name, max_error,
+                      reinterpret(Base.uinttype(T), r.input),
+                      reinterpret(Base.uinttype(T), r.output),
+                      r.ntests)
+        open(file_hex, "a") do io
+            write(io, line)
         end
     end
 end
