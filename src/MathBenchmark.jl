@@ -10,8 +10,6 @@ include("error_calculator.jl")
 using .Err
 
 using Printf
-using Format
-using Logging
 
 # Number of tasks spawned per thread when testing a function. More chunks than
 # threads let the scheduler balance the load: the cost of the reference
@@ -153,22 +151,18 @@ function run_task(task::Config.BenchmarkTask, output_dir::AbstractString)
     printstyled("Format: $(task.format) Search: $(task.search) Rounding: \
                 $(task.rounding) Fastmath: $(task.fastmath)\n", color=:green)
 
-    # Results table formatting. Each task specied in the JSON file has
-    # a result .txt file named accordingly.
-    fe = FormatExpr("{1:<10s} {2:>15s} {3:>30s} {4:>30s} {5:>30s} {6:>20s} {7:>20s} {8:>20s}\n")
-    result_table_head = format(fe, "Function", "ULPs", "Input", "Output",
-                               "MPFR", "Tests", "Infs", "Failures")
-    fe_hex = FormatExpr("{1:<10s} {2:>15s} {3:>30s} {4:>30s} {5:>20s} {6:>20s} {7:>20s}\n")
-    result_table_head_hex = format(fe_hex, "Function", "ULPs", "Input", "Output",
-                                   "Tests", "Infs", "Failures")
+    # Results table formatting. Each task specified in the JSON file has a
+    # result .txt file named accordingly, with the input and output printed
+    # with 17 significant digits (enough to round-trip a binary64 value) and
+    # the reference with 21, and a HEX_ file with the bits of input and output.
     file = joinpath(output_dir, "$task_name.txt")
     file_hex = joinpath(output_dir, "HEX_$task_name.txt")
-    write(file, result_table_head)
-    write(file_hex, result_table_head_hex)
-    fe = FormatExpr("{1:<10s} {2:>15.10f} {3:>30.15e} \
-                    {4:>30.15e} {5:>30.15e} {6:>20d} {7:>20d} {8:>20d}\n")
-    fe_hex = FormatExpr("{1:<10s} {2:>15.10f} {3:>#30x} {4:>#30x} \
-                    {5:>20d} {6:>20d} {7:>20d}\n")
+    write(file, Printf.format(Printf.Format("%-10s %15s %30s %30s %30s %20s %20s %20s\n"),
+                              "Function", "ULPs", "Input", "Output", "MPFR", "Tests", "Infs", "Failures"))
+    write(file_hex, Printf.format(Printf.Format("%-10s %15s %30s %30s %20s %20s %20s\n"),
+                                  "Function", "ULPs", "Input", "Output", "Tests", "Infs", "Failures"))
+    fe = Printf.Format("%-10s %15.10f %30.16e %30.16e %30.20e %20d %20d %20d\n")
+    fe_hex = Printf.Format("%-10s %15.10f %#30x %#30x %20d %20d %20d\n")
 
     # Loop through the functions list of a particular format, in alphabetical
     # order so that result files are comparable across runs and Julia versions.
@@ -179,17 +173,15 @@ function run_task(task::Config.BenchmarkTask, output_dir::AbstractString)
 
         # Report the maximum error and the corresponding values to the output files.
         max_error = trunc(r.max_error, digits=10)
-        line = format(fe, func_name, max_error, Float64(r.input), Float64(r.output),
-                      Float64(r.reference), r.ntests, r.ninfs, r.nfailures)
         open(file, "a") do io
-            write(io, line)
+            Printf.format(io, fe, func_name, max_error, Float64(r.input), Float64(r.output),
+                          r.reference, r.ntests, r.ninfs, r.nfailures)
         end
-        line = format(fe_hex, func_name, max_error,
-                      reinterpret(Base.uinttype(T), r.input),
-                      reinterpret(Base.uinttype(T), r.output),
-                      r.ntests, r.ninfs, r.nfailures)
         open(file_hex, "a") do io
-            write(io, line)
+            Printf.format(io, fe_hex, func_name, max_error,
+                          reinterpret(Base.uinttype(T), r.input),
+                          reinterpret(Base.uinttype(T), r.output),
+                          r.ntests, r.ninfs, r.nfailures)
         end
     end
 end
