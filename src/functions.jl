@@ -17,8 +17,19 @@ functions_dict["binary32"] = binary32_functions
 functions_dict["binary64"] = binary64_functions
 
 spec_inputs_dict = Dict{String, Dict{}}()
+spec_inputs_dict["binary16"] = Dict{String, Vector{Float16}}()  # none
 spec_inputs_dict["binary32"] = binary32_functions_spec_inputs
 spec_inputs_dict["binary64"] = binary64_functions_spec_inputs
+
+format_name = Dict(Float16 => "binary16", Float32 => "binary32", Float64 => "binary64")
+
+"""
+    special_inputs(T, func_name) -> Vector{T}
+
+Special inputs of the function `func_name` in the format `T` (possibly none).
+"""
+special_inputs(::Type{T}, func_name::AbstractString) where {T} =
+    get(spec_inputs_dict[format_name[T]], func_name, T[])::Vector{T}
 
 # Exact input domain intervals for 24 univariate functions
 # available in the Base Julia.
