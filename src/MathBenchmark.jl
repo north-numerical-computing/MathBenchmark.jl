@@ -53,12 +53,25 @@ function test_domain(reference, f, ::Type{T}, lo::T, hi::T, step::Integer;
                      nchunks::Integer = CHUNKS_PER_THREAD * Threads.nthreads()) where {T}
     k_lo = Err.ordinal(lo)
     step = Int128(step)
-    tasks = map(split_range(k_lo, Err.ordinal(hi), nchunks)) do (a, b)
-        # First sampled ordinal in this chunk.
-        first = k_lo + cld(a - k_lo, step) * step
-        Threads.@spawn Err.test_range(reference, f, T, first, b, step)
+    # With many threads, Julia (seen on 1.11, 1.12 and nightly with 96 threads)
+    # can deadlock when a garbage collection is requested while a thread holds
+    # MPFR's internal cache lock (taken e.g. to compute pi for acos): the lock
+    # holder waits for the collection at the safepoint inside
+    # jl_gc_counted_malloc, which MPFR uses for its temporaries, while the
+    # threads waiting for the lock sit in a ccall and never reach a safepoint,
+    # so the collection cannot start. The kernels do not allocate Julia
+    # objects, so the collector is simply disabled while the tasks run.
+    gc_enabled = GC.enable(false)
+    try
+        tasks = map(split_range(k_lo, Err.ordinal(hi), nchunks)) do (a, b)
+            # First sampled ordinal in this chunk.
+            first = k_lo + cld(a - k_lo, step) * step
+            Threads.@spawn Err.test_range(reference, f, T, first, b, step)
+        end
+        return reduce(Err.combine, fetch.(tasks))
+    finally
+        GC.enable(gc_enabled)
     end
-    return reduce(Err.combine, fetch.(tasks))
 end
 
 """
