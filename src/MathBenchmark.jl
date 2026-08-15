@@ -245,7 +245,13 @@ function run_mathbenchmark(config_file::AbstractString = "config.json";
                      Err.function_max_error_special_inputs(
                          func_name, data_format, rounding, fastmath_on, input_set)
             else
-                number_of_infs[][Threads.nthreads()+1].val = 0.0
+                # No special inputs for this format: reset the whole slot, or the
+                # results of the previous task's last function would be picked up
+                # by findmax/sum below.
+                for slot in (max_error, max_input, max_output, max_ref_out,
+                             number_of_tests, number_of_infs)
+                    slot[][Threads.nthreads()+1].val = 0.0
+                end
             end
 
             # Find index of the maximum error and report to the output file.
