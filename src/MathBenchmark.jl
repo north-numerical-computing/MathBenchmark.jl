@@ -212,6 +212,11 @@ function run_mathbenchmark(config_file::AbstractString = "config.json";
                 start_float, end_float, data_format)
             t_num_floats = floor(num_floats/Threads.nthreads())
 
+            # The search strategy actually used for this function: a time-budgeted
+            # search falls back to the exhaustive one when the budget allows testing
+            # more values than there are in the domain. This must not leak into the
+            # strategy of the other functions of the task.
+            func_search = search
             tests_to_do = 0
             if isa(search, Integer)
                 tests_to_do = search;
@@ -219,23 +224,23 @@ function run_mathbenchmark(config_file::AbstractString = "config.json";
                 tests_to_do = check_run_time(ns_budget, start_float, end_float, t_num_floats,
                                              func_name, data_format, rounding, fastmath_on, search)
                 if tests_to_do*Threads.nthreads() > num_floats
-                    search = "exhaustive"
+                    func_search = "exhaustive"
                 end
             end
 
-            if search == "exhaustive"
+            if func_search == "exhaustive"
                 @printf("Running %d tests (search strategy exhaustive) for the function \
                          %s with %d threads \n", num_floats, func_name, Threads.nthreads())
             else
                 @printf("Running %d tests (search strategy \"%s\") for the function \
                     %s with %d threads \n",
-                        tests_to_do*Threads.nthreads(), search, func_name, Threads.nthreads())
+                        tests_to_do*Threads.nthreads(), func_search, func_name, Threads.nthreads())
             end
             flush(stdout)
 
             spawn_threads(start_float, end_float, t_num_floats,
                           func_name, data_format, rounding, fastmath_on,
-                          tests_to_do, search)
+                          tests_to_do, func_search)
 
             # Run tests on special inputs
             if (data_format != "binary16")
