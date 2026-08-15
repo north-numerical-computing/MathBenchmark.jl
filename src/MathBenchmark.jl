@@ -170,8 +170,11 @@ function run_task(task::Config.BenchmarkTask, output_dir::AbstractString)
     fe_hex = FormatExpr("{1:<10s} {2:>15.10f} {3:>#30x} {4:>#30x} \
                     {5:>20d} {6:>20d} {7:>20d}\n")
 
-    # Loop through the functions list of a particular format.
-    for (func_name, (lo, hi)) in Functions.functions_dict[task.format]
+    # Loop through the functions list of a particular format, in alphabetical
+    # order so that result files are comparable across runs and Julia versions.
+    domains = Functions.functions_dict[task.format]
+    for func_name in sort!(collect(keys(domains)))
+        lo, hi = domains[func_name]
         r = run_function(func_name, T, lo, hi, task.search, task.fastmath)
 
         # Report the maximum error and the corresponding values to the output files.

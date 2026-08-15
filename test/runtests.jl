@@ -260,7 +260,7 @@ end
                 @test startswith(lines[1], "Function")
                 rows = split.(lines[2:end])
                 @test all(0 <= parse(Float64, r[2]) < 10 for r in rows)
-                @test allunique(r[1] for r in rows)
+                @test issorted(r[1] for r in rows) && allunique(r[1] for r in rows)
             end
         end
     end
