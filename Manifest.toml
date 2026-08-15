@@ -1,8 +1,8 @@
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.12.4"
+julia_version = "1.12.6"
 manifest_format = "2.0"
-project_hash = "24f65860fcc3804ac8dd152949d3a053faac2ca0"
+project_hash = "0d57343764b2039fdbeeb9f51ab021e0b67cd6c9"
 
 [[deps.Dates]]
 deps = ["Printf"]
@@ -16,9 +16,9 @@ version = "1.3.7"
 
 [[deps.JSON]]
 deps = ["Dates", "Logging", "Parsers", "PrecompileTools", "StructUtils", "UUIDs", "Unicode"]
-git-tree-sha1 = "c89d196f5ffb64bfbf80985b699ea913b0d2c211"
+git-tree-sha1 = "c7345ab1a7ca4dc8a02c9f6510da0d9857bbe513"
 uuid = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
-version = "1.6.1"
+version = "1.7.1"
 
     [deps.JSON.extensions]
     JSONArrowExt = ["ArrowTypes"]
@@ -30,33 +30,17 @@ version = "1.6.1"
 uuid = "56ddb016-857b-54e1-b83d-db4d58db5568"
 version = "1.11.0"
 
-[[deps.MacroTools]]
-git-tree-sha1 = "1e0228a030642014fe5cfe68c2c0a818f9e3f522"
-uuid = "1914dd2f-81c6-5fcd-8719-6d5c9610ff09"
-version = "0.5.16"
-
-[[deps.Match]]
-deps = ["MacroTools", "OrderedCollections"]
-git-tree-sha1 = "58c5c5db26f2f0512facb359991410b7b5982c38"
-uuid = "7eb4fadd-790c-5f42-8a69-bfa0b872bfbf"
-version = "2.4.1"
-
 [[deps.MathBenchmark]]
-deps = ["Format", "JSON", "Match", "Printf"]
+deps = ["Format", "JSON", "Logging", "Printf"]
 path = "."
 uuid = "c0c1d0ce-02cd-4668-98cf-2ce407c554ca"
 version = "0.0.0"
 
-[[deps.OrderedCollections]]
-git-tree-sha1 = "94ba93778373a53bfd5a0caaf7d809c445292ff4"
-uuid = "bac558e1-5e72-5ebc-8fee-abe8a469f55d"
-version = "1.8.2"
-
 [[deps.Parsers]]
 deps = ["Dates", "PrecompileTools", "UUIDs"]
-git-tree-sha1 = "32a4e09c5f29402573d673901778a0e03b0807b9"
+git-tree-sha1 = "3de8f5e6e90ebfa8d6d1f86997d6cdcd6a912ff3"
 uuid = "69de0a69-1ddd-5017-9359-2bf0b02dc9f0"
-version = "2.8.6"
+version = "2.8.7"
 
 [[deps.PrecompileTools]]
 deps = ["Preferences"]
@@ -86,9 +70,9 @@ version = "0.7.0"
 
 [[deps.StructUtils]]
 deps = ["Dates", "UUIDs"]
-git-tree-sha1 = "82bee338d650aa515f31866c460cb7e3bcef90b8"
+git-tree-sha1 = "2d0fc55c61321ba245c47be599570d11bac50303"
 uuid = "ec057cc2-7a8d-4b58-b3b3-92acb9f63b42"
-version = "2.8.2"
+version = "2.8.5"
 
     [deps.StructUtils.extensions]
     StructUtilsMeasurementsExt = ["Measurements"]
