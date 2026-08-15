@@ -5,8 +5,6 @@ using .Functions
 using Printf
 
 using Libdl
-const libmpfr_handle = Libdl.dlopen(:libmpfr)
-const dlsym_lock = ReentrantLock()
 
 neg_zeros = Dict{String, Any}()
 neg_zeros["binary16"] = UInt16(0x8000)
@@ -58,9 +56,14 @@ const MPFR_UNARY = Dict(
     "tanpi" => :mpfr_tanpi,
 )
 
-function mpfr_fptr(name::Symbol)
-    return lock(dlsym_lock) do
-        Libdl.dlsym(libmpfr_handle, name)
+const libmpfr_handle = Ref{Ptr{Cvoid}}()
+const MPFR_FPTRS = Dict{String, Ptr{Cvoid}}()
+
+function __init__()
+    libmpfr_handle[] = Libdl.dlopen(:libmpfr)
+    empty!(MPFR_FPTRS)
+    for (name, sym) in MPFR_UNARY
+        MPFR_FPTRS[name] = Libdl.dlsym(libmpfr_handle[], sym)
     end
 end
 
@@ -166,6 +169,11 @@ function apply!(z::BigFloat, fptr::Ptr{Cvoid}, x::BigFloat)
     return z
 end
 
+struct MpfrApply
+    fptr::Ptr{Cvoid}
+end
+(a::MpfrApply)(z::BigFloat, x::BigFloat) = apply!(z, a.fptr, x)
+
 """
 Given an input value x in one of the three floating-point formats,
 calculate y, the approximation of the function for that format, and
@@ -218,8 +226,7 @@ function function_max_error_exhaustive(
     bigz = BigFloat(0.0)
     scratch = BigFloat(0.0)
 
-    fptr = mpfr_fptr(MPFR_UNARY[func])
-    apply_fn = (dest, x) -> apply!(dest, fptr, x)
+    apply_fn = MpfrApply(MPFR_FPTRS[func])
 
     f = getfield(Base.Math, Symbol(func));
     while x <= end_float
@@ -272,8 +279,7 @@ function function_max_error_fixed_step(
     bigz = BigFloat(0.0)
     scratch = BigFloat(0.0)
 
-    fptr = mpfr_fptr(MPFR_UNARY[func])
-    apply_fn = (dest, x) -> apply!(dest, fptr, x)
+    apply_fn = MpfrApply(MPFR_FPTRS[func])
 
     f = getfield(Base.Math, Symbol(func))
     while x <= end_float
@@ -321,8 +327,7 @@ function function_max_error_special_inputs(
     bigz = BigFloat(0.0)
     scratch = BigFloat(0.0)
 
-    fptr = mpfr_fptr(MPFR_UNARY[func])
-    apply_fn = (dest, x) -> apply!(dest, fptr, x)
+    apply_fn = MpfrApply(MPFR_FPTRS[func])
 
     f = getfield(Base.Math, Symbol(func))
     for x in input_set
