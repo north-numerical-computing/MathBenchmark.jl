@@ -112,13 +112,18 @@ function spawn_threads(start_float, end_float, t_num_floats,
     return (max_error, max_input, max_output, max_ref_out, number_of_tests, number_of_infs)
 end
 
-config_file = "config.json"
-mkpath("output")
+"""
+    run_mathbenchmark(config_file = "config.json"; output_dir = "output")
 
-function run_mathbenchmark()
+Run the tasks described in the JSON file `config_file` and write one pair of result
+files (`<task>.txt` and `HEX_<task>.txt`) per task in `output_dir`.
+"""
+function run_mathbenchmark(config_file::AbstractString = "config.json";
+                           output_dir::AbstractString = "output")
 
     # Read and validate testing tasks specified in the json file.
     tasks = FileIO.read_input_file(config_file)
+    mkpath(output_dir)
 
     max_error[] =
         [PaddedFloat64(0.0, ntuple(_ -> 0.0, 7)) for _ in 1: Threads.nthreads()+1]
@@ -171,10 +176,10 @@ function run_mathbenchmark()
         fe_hex = FormatExpr("{1:<10s} {2:>15s} {3:>30s} {4:>30s} {5:>20s}\n")
         result_table_head_hex = format(fe_hex, "Function", "ULPs", "Input", "Output",
                                        "Tests")
-        open("output/$task_name.txt", "w") do file
+        open(joinpath(output_dir, "$task_name.txt"), "w") do file
             write(file, result_table_head)
         end
-        open("output/HEX_$task_name.txt", "w") do file_hex
+        open(joinpath(output_dir, "HEX_$task_name.txt"), "w") do file_hex
             write(file_hex, result_table_head_hex)
         end
         fe = FormatExpr("{1:<10s} {2:>15.10f} {3:>30.15e} \
@@ -253,7 +258,7 @@ function run_mathbenchmark()
                           max_input[][i].val, max_output[][i].val,
                           max_ref_out[][i].val, sum([s.val for s in number_of_tests[]]),
                           sum([s.val for s in number_of_infs[]]))
-            open("output/$task_name.txt", "a") do file
+            open(joinpath(output_dir, "$task_name.txt"), "a") do file
                 write(file, line);
             end
             line = format(fe_hex, func_name, trunc(max_error[][i].val, digits=10),
@@ -263,7 +268,7 @@ function run_mathbenchmark()
                                       Err.formats[data_format](max_output[][i].val)),
                           sum([s.val for s in number_of_tests[]]),
                           sum([s.val for s in number_of_infs[]]))
-            open("output/HEX_$task_name.txt", "a") do file_hex
+            open(joinpath(output_dir, "HEX_$task_name.txt"), "a") do file_hex
                 write(file_hex, line);
             end
         end
