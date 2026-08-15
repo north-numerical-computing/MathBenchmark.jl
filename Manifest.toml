@@ -1,8 +1,8 @@
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.12.4"
+julia_version = "1.12.6"
 manifest_format = "2.0"
-project_hash = "24f65860fcc3804ac8dd152949d3a053faac2ca0"
+project_hash = "8e94fbc71d23e5b37b36b7f7c8afeb0671f37325"
 
 [[deps.Dates]]
 deps = ["Printf"]
@@ -26,6 +26,10 @@ version = "1.6.1"
     [deps.JSON.weakdeps]
     ArrowTypes = "31f734f8-188a-4ce0-8406-c8a06bd891cd"
 
+[[deps.Libdl]]
+uuid = "8f399da3-3557-5675-b5ff-fb832c97cbdb"
+version = "1.11.0"
+
 [[deps.Logging]]
 uuid = "56ddb016-857b-54e1-b83d-db4d58db5568"
 version = "1.11.0"
@@ -42,7 +46,7 @@ uuid = "7eb4fadd-790c-5f42-8a69-bfa0b872bfbf"
 version = "2.4.1"
 
 [[deps.MathBenchmark]]
-deps = ["Format", "JSON", "Match", "Printf"]
+deps = ["Format", "JSON", "Logging", "Match", "Printf"]
 path = "."
 uuid = "c0c1d0ce-02cd-4668-98cf-2ce407c554ca"
 version = "0.0.0"
