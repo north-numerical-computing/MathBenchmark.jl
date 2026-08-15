@@ -225,8 +225,13 @@ Outcome of testing a set of inputs of format `T`.
 * `max_error`, `input`, `output`, `reference` describe the worst case found
   (`max_error < 0` if nothing was tested);
 * `ntests` is the number of inputs tested;
-* `ninfs` counts inputs for which the Julia function returned an infinity (they
-  are not compared to the reference).
+* `ninfs` counts inputs for which the Julia function returned an infinity;
+* `nfailures` counts inputs whose result cannot be compared to the reference:
+  an `Inf`/`NaN` result where the correctly rounded reference is finite (spurious
+  overflow), a finite/`NaN` result where the correctly rounded reference is
+  infinite (missed overflow or pole), or an infinity of the wrong sign. Failures
+  do not enter `max_error`. An infinity that matches an infinite correctly
+  rounded reference (overflow, pole) is only counted in `ninfs`.
 """
 struct Result{T<:IEEEFloat}
     max_error::Float64
@@ -235,9 +240,10 @@ struct Result{T<:IEEEFloat}
     reference::BigFloat
     ntests::Int
     ninfs::Int
+    nfailures::Int
 end
 
-Result{T}() where {T} = Result{T}(-1.0, zero(T), zero(T), BigFloat(0.0), 0, 0)
+Result{T}() where {T} = Result{T}(-1.0, zero(T), zero(T), BigFloat(0.0), 0, 0, 0)
 
 """
     combine(a::Result, b::Result) -> Result
@@ -247,7 +253,7 @@ Merge two results: the worst case of the two (`a` on ties) and the sums of the c
 function combine(a::Result{T}, b::Result{T}) where {T}
     best = a.max_error >= b.max_error ? a : b
     return Result{T}(best.max_error, best.input, best.output, best.reference,
-                     a.ntests + b.ntests, a.ninfs + b.ninfs)
+                     a.ntests + b.ntests, a.ninfs + b.ninfs, a.nfailures + b.nfailures)
 end
 
 # Mutable accumulator used inside the kernels; converted to a `Result` at the end.
@@ -258,10 +264,11 @@ mutable struct Accumulator{T<:IEEEFloat}
     reference::BigFloat
     ntests::Int
     ninfs::Int
+    nfailures::Int
 end
-Accumulator{T}() where {T} = Accumulator{T}(-1.0, zero(T), zero(T), BigFloat(0.0), 0, 0)
+Accumulator{T}() where {T} = Accumulator{T}(-1.0, zero(T), zero(T), BigFloat(0.0), 0, 0, 0)
 Result(acc::Accumulator{T}) where {T} =
-    Result{T}(acc.max_error, acc.input, acc.output, acc.reference, acc.ntests, acc.ninfs)
+    Result{T}(acc.max_error, acc.input, acc.output, acc.reference, acc.ntests, acc.ninfs, acc.nfailures)
 
 # Copy of a BigFloat with the same precision (BigFloat(z) would alias z).
 function copy_bigfloat(z::BigFloat)
@@ -273,22 +280,25 @@ end
 """
     test_input!(acc, ref, f, x)
 
-Evaluate `f(x)`, compare it with the reference and update the accumulator `acc`.
+Evaluate `f(x)` and its reference, classify the outcome (see [`Result`](@ref))
+and update the accumulator `acc`.
 """
 @inline function test_input!(acc::Accumulator{T}, ref, f::F, x::T) where {T<:IEEEFloat, F}
     y = f(x)
-    acc.ntests += 1
-    if isinf(y)
-        acc.ninfs += 1
-        return nothing
-    end
     z = evaluate(ref, x)
-    err = ulp_error(ref, y, z)
-    if err > acc.max_error
-        acc.max_error = err
-        acc.input = x
-        acc.output = y
-        acc.reference = copy_bigfloat(z)
+    zr = T(z)   # correctly rounded reference in the format
+    acc.ntests += 1
+    isinf(y) && (acc.ninfs += 1)
+    if isfinite(y) && isfinite(zr)
+        err = ulp_error(ref, y, z)
+        if err > acc.max_error
+            acc.max_error = err
+            acc.input = x
+            acc.output = y
+            acc.reference = copy_bigfloat(z)
+        end
+    elseif !(isinf(y) && isinf(zr) && signbit(y) == signbit(zr))
+        acc.nfailures += 1
     end
     return nothing
 end

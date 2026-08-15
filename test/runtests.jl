@@ -216,11 +216,23 @@ end
             r5 = Err.test_values(ref, f, T[0.5, 1.5, 2.5])
             @test r5.ntests == 3 && r5.max_error == maximum(errs[Err.ordinal(T(x)) - Err.ordinal(lo) + 1] for x in (0.5, 1.5, 2.5))
             r6 = Err.test_values(Err.BigFloatReference(exp), exp, T[1.0, 12.0, 20.0])
-            @test r6.ntests == 3 && r6.ninfs == 2 && r6.input === T(1.0)
+            @test r6.ntests == 3 && r6.ninfs == 2 && r6.nfailures == 0 && r6.input === T(1.0)
             # Combining results keeps the worst case and sums the counters.
             c = Err.combine(r5, r6)
             @test c.ntests == 6 && c.ninfs == 2 && c.max_error == max(r5.max_error, r6.max_error)
             @test Err.combine(r6, Err.Result{T}()).max_error == r6.max_error
+            # Failures: results that cannot be compared to the reference. Legitimate
+            # overflows (exp(20) in Float16) and poles (tanpi(0.5)) are only infinities.
+            for ref in (Err.BigFloatReference(exp), Err.MPFRReference("exp", 63))
+                spurious(x) = x == T(0.5) ? T(Inf) : x == T(0.25) ? T(NaN) : x == T(20) ? floatmax(T) : x == T(11) ? T(-Inf) : exp(x)
+                r7 = Err.test_values(ref, spurious, T[0.5, 0.25, 1.0, 20.0, 11.0, 12.0])
+                @test r7.ntests == 6
+                @test r7.ninfs == 3       # 0.5 (spurious), 11 (wrong sign), 12 (legitimate)
+                @test r7.nfailures == 4   # 0.5, 0.25, 20 (missed overflow), 11
+                @test r7.input === T(1.0) && r7.max_error == r6.max_error
+            end
+            r8 = Err.test_values(Err.MPFRReference("tanpi", 63), tanpi, T[0.5, -1.5, 0.25])
+            @test r8.ninfs == 2 && r8.nfailures == 0 && r8.ntests == 3
         end
     end
 

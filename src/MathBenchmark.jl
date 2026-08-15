@@ -155,20 +155,20 @@ function run_task(task::Config.BenchmarkTask, output_dir::AbstractString)
 
     # Results table formatting. Each task specied in the JSON file has
     # a result .txt file named accordingly.
-    fe = FormatExpr("{1:<10s} {2:>15s} {3:>30s} {4:>30s} {5:>30s} {6:>20s} {7:>20s}\n")
+    fe = FormatExpr("{1:<10s} {2:>15s} {3:>30s} {4:>30s} {5:>30s} {6:>20s} {7:>20s} {8:>20s}\n")
     result_table_head = format(fe, "Function", "ULPs", "Input", "Output",
-                               "MPFR", "Tests", "Infs")
-    fe_hex = FormatExpr("{1:<10s} {2:>15s} {3:>30s} {4:>30s} {5:>20s}\n")
+                               "MPFR", "Tests", "Infs", "Failures")
+    fe_hex = FormatExpr("{1:<10s} {2:>15s} {3:>30s} {4:>30s} {5:>20s} {6:>20s} {7:>20s}\n")
     result_table_head_hex = format(fe_hex, "Function", "ULPs", "Input", "Output",
-                                   "Tests")
+                                   "Tests", "Infs", "Failures")
     file = joinpath(output_dir, "$task_name.txt")
     file_hex = joinpath(output_dir, "HEX_$task_name.txt")
     write(file, result_table_head)
     write(file_hex, result_table_head_hex)
     fe = FormatExpr("{1:<10s} {2:>15.10f} {3:>30.15e} \
-                    {4:>30.15e} {5:>30.15e} {6:>20d} {7:>20d}\n")
+                    {4:>30.15e} {5:>30.15e} {6:>20d} {7:>20d} {8:>20d}\n")
     fe_hex = FormatExpr("{1:<10s} {2:>15.10f} {3:>#30x} {4:>#30x} \
-                    {5:>20d}\n")
+                    {5:>20d} {6:>20d} {7:>20d}\n")
 
     # Loop through the functions list of a particular format.
     for (func_name, (lo, hi)) in Functions.functions_dict[task.format]
@@ -177,14 +177,14 @@ function run_task(task::Config.BenchmarkTask, output_dir::AbstractString)
         # Report the maximum error and the corresponding values to the output files.
         max_error = trunc(r.max_error, digits=10)
         line = format(fe, func_name, max_error, Float64(r.input), Float64(r.output),
-                      Float64(r.reference), r.ntests, r.ninfs)
+                      Float64(r.reference), r.ntests, r.ninfs, r.nfailures)
         open(file, "a") do io
             write(io, line)
         end
         line = format(fe_hex, func_name, max_error,
                       reinterpret(Base.uinttype(T), r.input),
                       reinterpret(Base.uinttype(T), r.output),
-                      r.ntests)
+                      r.ntests, r.ninfs, r.nfailures)
         open(file_hex, "a") do io
             write(io, line)
         end
