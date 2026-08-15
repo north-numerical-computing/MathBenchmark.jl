@@ -211,6 +211,7 @@ function function_max_error_fixed_step(
     max_input = 0.0;
     max_output = 0.0;
     max_ref_out::BigFloat = 0.0;
+    number_of_tests = 0;
     number_of_infs = 0;
 
     u_format = Err.uint_formats[format]
@@ -224,6 +225,7 @@ function function_max_error_fixed_step(
     f_ref = reference_function(func)
     while x <= end_float
         (error, y, z) = calculate_function(x, f, f_ref, rounding)
+        number_of_tests = number_of_tests + 1
 
         if (isnan(z))
             number_of_infs = number_of_infs + 1
@@ -241,7 +243,7 @@ function function_max_error_fixed_step(
     end
 
     max_error = Float64(max_error, RoundToZero)
-    return (max_error, max_input, max_output, Float64(max_ref_out), tests_to_do, number_of_infs)
+    return (max_error, max_input, max_output, Float64(max_ref_out), number_of_tests, number_of_infs)
 end
 
 
