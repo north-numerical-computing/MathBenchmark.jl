@@ -224,6 +224,14 @@ end
         end
     end
 
+    @testset "calibration" begin
+        ref = Err.MPFRReference("exp", 127)
+        n = MathBenchmark.tests_per_thread_in_budget(ref, exp, Float64, -1.0, 1.0, 10^9; ntests=200)
+        @test n isa Int && n >= 1
+        # Even a vanishing budget asks for at least one test.
+        @test MathBenchmark.tests_per_thread_in_budget(ref, exp, Float64, -1.0, 1.0, 0; ntests=10) == 1
+    end
+
     @testset "run_mathbenchmark" begin
         config = """
         {

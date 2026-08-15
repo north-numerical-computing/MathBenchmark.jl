@@ -18,8 +18,10 @@ using Logging
 # computation varies with the magnitude of the input.
 const CHUNKS_PER_THREAD = 8
 
-# Number of tests per thread used to estimate the speed of a function.
+# Number of tests per thread used to estimate the speed of a function, and to
+# warm up (compile) the kernels before timing them.
 const CALIBRATION_TESTS = 100_000
+const WARMUP_TESTS = 100
 
 # Time budget, in nanoseconds, of the time-based search strategies.
 const TIME_BUDGET_NS = Dict("seconds" => 10^9,
@@ -62,17 +64,21 @@ function test_domain(reference, f, ::Type{T}, lo::T, hi::T, step::Integer;
 end
 
 """
-    tests_per_thread_in_budget(reference, f, ::Type{T}, lo, hi, budget_ns) -> Int
+    tests_per_thread_in_budget(reference, f, ::Type{T}, lo, hi, budget_ns;
+                               ntests = CALIBRATION_TESTS) -> Int
 
 Estimate how many tests per thread of `f` fit in `budget_ns` nanoseconds by timing
-`CALIBRATION_TESTS` tests per thread.
+`ntests` tests per thread (after a short warm-up run, so that the compilation of
+the kernels for `f` is not counted).
 """
-function tests_per_thread_in_budget(reference, f, ::Type{T}, lo::T, hi::T, budget_ns) where {T}
+function tests_per_thread_in_budget(reference, f, ::Type{T}, lo::T, hi::T, budget_ns;
+                                    ntests::Integer = CALIBRATION_TESTS) where {T}
     nthreads = Threads.nthreads()
-    ntests = CALIBRATION_TESTS * nthreads
-    step = max(cld(Err.number_of_floats(lo, hi), ntests), 1)
-    elapsed = @elapsed test_domain(reference, f, T, lo, hi, step)
-    return floor(Int, budget_ns / (elapsed * 1e9 / CALIBRATION_TESTS))
+    num_floats = Err.number_of_floats(lo, hi)
+    stride(n) = max(cld(num_floats, n), 1)
+    test_domain(reference, f, T, lo, hi, stride(WARMUP_TESTS * nthreads))
+    elapsed = @elapsed test_domain(reference, f, T, lo, hi, stride(ntests * nthreads))
+    return max(floor(Int, budget_ns / (elapsed * 1e9 / ntests)), 1)
 end
 
 """
