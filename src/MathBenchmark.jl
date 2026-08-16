@@ -1,6 +1,6 @@
 module MathBenchmark
 
-include("file_io.jl")
+include("config.jl")
 using .Config
 
 include("functions.jl")
