@@ -148,7 +148,8 @@ function run_mathbenchmark(config_file::AbstractString = "config.json";
                            output_dir::AbstractString = "output")
 
     # Read and validate the testing tasks specified in the json file. Invalid
-    # tasks throw an error before anything is run.
+    # tasks throw an informative error, stopping the benchmark before anything
+    # is run.
     tasks = Config.read_config(config_file)
     mkpath(output_dir)
 
