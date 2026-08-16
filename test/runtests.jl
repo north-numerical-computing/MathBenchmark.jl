@@ -274,8 +274,19 @@ end
                 @test length(lines) == 1 + length(MathBenchmark.Functions.functions_dict["binary64"])
                 @test startswith(lines[1], "Function")
                 rows = split.(lines[2:end])
-                @test all(0 <= parse(Float64, r[2]) < 10 for r in rows)
+                @test all(0 <= parse(Float64, r[3]) < 10 for r in rows)
                 @test issorted(r[1] for r in rows) && allunique(r[1] for r in rows)
+                # The Fastmath column follows the flag of the task ("fastmath": 0
+                # for "b16", 1 for "b64" above), except that the functions
+                # without a fast variant are reported as not fastmath.
+                fastmath = Dict(r[1] => parse(Bool, r[2]) for r in rows)
+                if name == "b16"
+                    @test !any(values(fastmath))
+                else
+                    @test fastmath["exp"] && fastmath["sin"]
+                    @test !fastmath["sinpi"] && !fastmath["cospi"] && !fastmath["tanpi"]
+                    @test count(values(fastmath)) == length(fastmath) - 3
+                end
             end
         end
     end

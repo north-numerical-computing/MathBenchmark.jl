@@ -168,14 +168,16 @@ function run_task(task::Config.BenchmarkTask, output_dir::AbstractString)
     # result .txt file named accordingly, with the input and output printed
     # with 17 significant digits (enough to round-trip a binary64 value) and
     # the reference with 21, and a HEX_ file with the bits of input and output.
+    # The Fastmath column tells whether the fastmath variant of the function
+    # was tested.
     file = joinpath(output_dir, "$task_name.txt")
     file_hex = joinpath(output_dir, "HEX_$task_name.txt")
-    write(file, Printf.format(Printf.Format("%-10s %15s %30s %30s %30s %20s %20s %20s\n"),
-                              "Function", "ULPs", "Input", "Output", "MPFR", "Tests", "Infs", "Failures"))
-    write(file_hex, Printf.format(Printf.Format("%-10s %15s %30s %30s %20s %20s %20s\n"),
-                                  "Function", "ULPs", "Input", "Output", "Tests", "Infs", "Failures"))
-    fe = Printf.Format("%-10s %15.10f %30.16e %30.16e %30.20e %20d %20d %20d\n")
-    fe_hex = Printf.Format("%-10s %15.10f %#30x %#30x %20d %20d %20d\n")
+    write(file, Printf.format(Printf.Format("%-10s %8s %15s %30s %30s %30s %20s %20s %20s\n"),
+                              "Function", "Fastmath", "ULPs", "Input", "Output", "MPFR", "Tests", "Infs", "Failures"))
+    write(file_hex, Printf.format(Printf.Format("%-10s %8s %15s %30s %30s %20s %20s %20s\n"),
+                                  "Function", "Fastmath", "ULPs", "Input", "Output", "Tests", "Infs", "Failures"))
+    fe = Printf.Format("%-10s %8s %15.10f %30.16e %30.16e %30.20e %20d %20d %20d\n")
+    fe_hex = Printf.Format("%-10s %8s %15.10f %#30x %#30x %20d %20d %20d\n")
 
     # Loop through the functions list of a particular format, in alphabetical
     # order so that result files are comparable across runs and Julia versions.
@@ -183,15 +185,20 @@ function run_task(task::Config.BenchmarkTask, output_dir::AbstractString)
     for func_name in sort!(collect(keys(domains)))
         lo, hi = domains[func_name]
         r = run_function(func_name, T, lo, hi, task.search, task.fastmath)
+        # Whether the fastmath variant of the function was actually tested:
+        # some functions do not have one, and are tested as is even when the
+        # task asks for fastmath.
+        fastmath = task.fastmath &&
+            Err.resolve_function(func_name, true) !== Err.resolve_function(func_name, false)
 
         # Report the maximum error and the corresponding values to the output files.
         max_error = trunc(r.max_error, digits=10)
         open(file, "a") do io
-            Printf.format(io, fe, func_name, max_error, Float64(r.input), Float64(r.output),
+            Printf.format(io, fe, func_name, fastmath, max_error, Float64(r.input), Float64(r.output),
                           r.reference, r.ntests, r.ninfs, r.nfailures)
         end
         open(file_hex, "a") do io
-            Printf.format(io, fe_hex, func_name, max_error,
+            Printf.format(io, fe_hex, func_name, fastmath, max_error,
                           reinterpret(Base.uinttype(T), r.input),
                           reinterpret(Base.uinttype(T), r.output),
                           r.ntests, r.ninfs, r.nfailures)
