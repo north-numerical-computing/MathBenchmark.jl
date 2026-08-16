@@ -31,10 +31,8 @@ reference_precision(::Type{Float16}) = 63
 reference_precision(::Type{Float32}) = 63
 reference_precision(::Type{Float64}) = 127
 
-# Exponent (base 2) of the smallest positive subnormal, i.e. `exponent(nextfloat(zero(T)))`.
-min_subnormal_exponent(::Type{Float16}) = -24
-min_subnormal_exponent(::Type{Float32}) = -149
-min_subnormal_exponent(::Type{Float64}) = -1074
+# Exponent (base 2) of the smallest positive subnormal.
+min_subnormal_exponent(::Type{T}) where {T<:IEEEFloat} = exponent(nextfloat(zero(T)))
 
 # ---------------------------------------------------------------------------
 # Ordinals: a bijection between the floating-point numbers of a format and a
