@@ -149,6 +149,7 @@ struct MPFRWorkspace{name}
     z::BigFloat   # reference output
     d::BigFloat   # z - y
 end
+
 new_reference(ref::MPFRReference{name}) where {name} =
     MPFRWorkspace{name}(BigFloat(precision=ref.prec), BigFloat(precision=ref.prec), BigFloat(precision=ref.prec))
 
@@ -266,7 +267,9 @@ mutable struct Accumulator{T<:IEEEFloat}
     ninfs::Int
     nfailures::Int
 end
+
 Accumulator{T}() where {T} = Accumulator{T}(-1.0, zero(T), zero(T), BigFloat(0.0), 0, 0, 0)
+
 Result(acc::Accumulator{T}) where {T} =
     Result{T}(acc.max_error, acc.input, acc.output, acc.reference, acc.ntests, acc.ninfs, acc.nfailures)
 
