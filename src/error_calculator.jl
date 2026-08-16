@@ -254,11 +254,12 @@ Result{T}() where {T} = Result{T}(-1.0, zero(T), zero(T), BigFloat(0.0), 0, 0, 0
 """
     combine(a::Result, b::Result) -> Result
 
-Merge two results: the worst case of the two (`a` on ties) and the sums of the counters.
+Result of testing the union of the inputs of `a` and `b` (which must be disjoint):
+the worst case among the two, and the counters added up.
 """
 function combine(a::Result{T}, b::Result{T}) where {T}
-    best = a.max_error >= b.max_error ? a : b
-    return Result{T}(best.max_error, best.input, best.output, best.reference,
+    worst = a.max_error >= b.max_error ? a : b
+    return Result{T}(worst.max_error, worst.input, worst.output, worst.reference,
                      a.ntests + b.ntests, a.ninfs + b.ninfs, a.nfailures + b.nfailures)
 end
 
