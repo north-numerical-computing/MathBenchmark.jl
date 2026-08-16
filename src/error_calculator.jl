@@ -159,8 +159,13 @@ new_reference(ref::MPFRReference{name}) where {name} =
     return ws.z
 end
 
-# `|y - z|` is formed in MPFR (exact whenever y is within the reference precision
-# of z), scaled by the power-of-two ulp of z (exact) and truncated to a Float64,
+# `z - y` is formed in MPFR at the reference precision (63 or 127 bits). As y has
+# only 11, 24 or 53 bits, the difference is exact whenever the bits of y lie
+# within the window spanned by the bits of z, i.e. unless y is off by more than
+# about 2^precision(T) ulps of z, or is smaller than z by a factor of about
+# 2^(reference precision - precision(T)): errors so gross that the rounding of
+# the difference (a relative error below 2^-63) is immaterial. The difference is
+# then scaled by the power-of-two ulp of z (exact) and truncated to a Float64,
 # which gives exactly `get_ulp_error(y, z)` truncated to 53 bits. Scaling before
 # the conversion matters for subnormal results, where |y - z| itself may not be
 # representable as a Float64.
