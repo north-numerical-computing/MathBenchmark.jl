@@ -136,6 +136,7 @@ end
 const MPFR_FUNCTIONS = (:acos, :acosh, :asin, :asinh, :atan, :atanh, :cbrt, :cos, :cosh,
                         :exp, :exp10, :exp2, :log, :log10, :log1p, :log2, :sin, :sinh,
                         :sqrt, :tan, :tanh, :cospi, :sinpi, :tanpi)
+
 for f in MPFR_FUNCTIONS
     mpfr_f = QuoteNode(Symbol(:mpfr_, f))
     @eval @inline mpfr_apply!(::Val{$(QuoteNode(f))}, r::BigFloat, x::BigFloat) =
