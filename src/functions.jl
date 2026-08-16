@@ -1,32 +1,32 @@
 module Functions
 
-binary16_functions = Dict{String, Tuple{Float16, Float16}}()
-binary32_functions = Dict{String, Tuple{Float32, Float32}}()
-binary64_functions = Dict{String, Tuple{Float64, Float64}}()
+# Input domains of the tested functions, per format: function name => (lo, hi).
+const binary16_functions = Dict{String, Tuple{Float16, Float16}}()
+const binary32_functions = Dict{String, Tuple{Float32, Float32}}()
+const binary64_functions = Dict{String, Tuple{Float64, Float64}}()
 
-binary32_functions_spec_inputs = Dict{String, Vector{Float32}}()
-binary64_functions_spec_inputs = Dict{String, Vector{Float64}}()
+# Special inputs of the tested functions, per format: function name => inputs.
+const binary32_functions_spec_inputs = Dict{String, Vector{Float32}}()
+const binary64_functions_spec_inputs = Dict{String, Vector{Float64}}()
 
-max_binary16 = floatmax(Float16)
-max_binary32 = floatmax(Float32)
-max_binary64 = floatmax(Float64)
+const max_binary16 = floatmax(Float16)
+const max_binary32 = floatmax(Float32)
+const max_binary64 = floatmax(Float64)
 
 # Smallest positive (subnormal) numbers.
-min_binary16 = nextfloat(zero(Float16))
-min_binary32 = nextfloat(zero(Float32))
-min_binary64 = nextfloat(zero(Float64))
+const min_binary16 = nextfloat(zero(Float16))
+const min_binary32 = nextfloat(zero(Float32))
+const min_binary64 = nextfloat(zero(Float64))
 
-functions_dict = Dict{String, Dict{}}()
-functions_dict["binary16"] = binary16_functions
-functions_dict["binary32"] = binary32_functions
-functions_dict["binary64"] = binary64_functions
+const functions_dict = Dict{String, Dict}("binary16" => binary16_functions,
+                                          "binary32" => binary32_functions,
+                                          "binary64" => binary64_functions)
 
-spec_inputs_dict = Dict{String, Dict{}}()
-spec_inputs_dict["binary16"] = Dict{String, Vector{Float16}}()  # none
-spec_inputs_dict["binary32"] = binary32_functions_spec_inputs
-spec_inputs_dict["binary64"] = binary64_functions_spec_inputs
+const spec_inputs_dict = Dict{String, Dict}("binary16" => Dict{String, Vector{Float16}}(),  # none
+                                            "binary32" => binary32_functions_spec_inputs,
+                                            "binary64" => binary64_functions_spec_inputs)
 
-format_name = Dict(Float16 => "binary16", Float32 => "binary32", Float64 => "binary64")
+const format_name = Dict(Float16 => "binary16", Float32 => "binary32", Float64 => "binary64")
 
 """
     special_inputs(T, func_name) -> Vector{T}
