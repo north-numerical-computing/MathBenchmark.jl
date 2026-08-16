@@ -39,7 +39,7 @@ Here is an example configuration JSON file:
 }
 ```
 
-The `format` field can be set to `binary16`, `binary32`, or `binary64`. The `rounding` field is a feature that may be available in the future; this can be set to `RN`, `RZ`, `RU`, or `RD`, but at present it will not take effect because Julia does not provide mathematical functions with separate rounding modes.
+The `format` field can be set to `binary16`, `binary32`, or `binary64` (or to the aliases `Float16`/`half`, `Float32`/`single`, `Float64`/`double`, respectively). The `rounding` field is a feature that may be available in the future; this can be set to `RN`, `RZ`, `RU`, or `RD`, but at present it will not take effect because Julia does not provide mathematical functions with separate rounding modes.
 
 The field `fastmath` can be set either to `0` or `1` to turn the Julia's fastmath feature off or on, respectively.
 

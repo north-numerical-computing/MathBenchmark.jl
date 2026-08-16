@@ -4,13 +4,24 @@ using JSON
 
 # Valid values for the fields of a task in the JSON config file.
 const FORMATS = ("binary16", "binary32", "binary64")
+# Alternative names of the formats, mapped to the canonical name.
+const FORMAT_ALIASES = Dict(
+    "Float16" => "binary16",
+    "half"   => "binary16",
+    "Float32" => "binary32",
+    "single" => "binary32",
+    "Float64" => "binary64",
+    "double" => "binary64",
+)
 const SEARCHES = ("exhaustive", "seconds", "minutes", "hours", "days")
 const ROUNDINGS = ("RN", "RZ", "RU", "RD")
 
 """
 A validated testing task from the JSON config file.
 
-* `format`: `"binary16"`, `"binary32"` or `"binary64"`;
+* `format`: `"binary16"`, `"binary32"` or `"binary64"` (the aliases `"Float16"`,
+  `"half"`, `"Float32"`, `"single"`, `"Float64"` and `"double"` are accepted in
+  the config file and mapped to these names);
 * `search`: `"exhaustive"`, a time budget (`"seconds"`, `"minutes"`, `"hours"`,
   `"days"`) or a positive integer number of tests per thread;
 * `rounding`: `"RN"`, `"RZ"`, `"RU"` or `"RD"` (currently without effect, Julia
@@ -43,8 +54,10 @@ function validate_task(name::AbstractString, details)
         _invalid(name, "expected an object with the fields \"format\", \"search\", \"rounding\" and \"fastmath\"")
 
     format = _field(name, details, "format")
+    format isa AbstractString && (format = get(FORMAT_ALIASES, format, format))
     format in FORMATS ||
-        _invalid(name, "invalid format $(repr(format)), valid formats: $(join(FORMATS, ", "))")
+        _invalid(name, "invalid format $(repr(format)), valid formats: $(join(FORMATS, ", ")) \
+                        or the aliases $(join(sort!(collect(keys(FORMAT_ALIASES))), ", "))")
 
     search = _field(name, details, "search")
     (search in SEARCHES || (search isa Integer && !(search isa Bool) && search > 0)) ||

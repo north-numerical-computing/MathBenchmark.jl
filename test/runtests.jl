@@ -30,11 +30,22 @@ end
         @test tasks[3].search === 12345 && tasks[3].fastmath === false
 
         task(fields) = """{ "t" : { $fields } }"""
+        # Aliases of the formats are mapped to the canonical names.
+        for (alias, format) in ("Float16" => "binary16", "half" => "binary16",
+                                "Float32" => "binary32", "single" => "binary32",
+                                "Float64" => "binary64", "double" => "binary64")
+            parsed = Config.validate_task("t", Dict("format" => alias, "rounding" => "RN",
+                                                  "fastmath" => 0, "search" => "seconds"))
+            @test parsed.format == format
+        end
+
         good = """ "format" : "binary32", "rounding" : "RN", "fastmath" : 0, "search" : "seconds" """
         @test with_config(Config.read_config, task(good))[1].name == "t"
         # Every invalid or missing field is an error, not a silently different run.
         for bad in (
                 """ "format" : "binary128", "rounding" : "RN", "fastmath" : 0, "search" : "seconds" """,
+                """ "format" : "float32", "rounding" : "RN", "fastmath" : 0, "search" : "seconds" """,
+                """ "format" : 32, "rounding" : "RN", "fastmath" : 0, "search" : "seconds" """,
                 """ "format" : "binary32", "rounding" : "RN", "fastmath" : 0, "search" : "hour" """,
                 """ "format" : "binary32", "rounding" : "RN", "fastmath" : 0, "search" : 0 """,
                 """ "format" : "binary32", "rounding" : "RN", "fastmath" : 0, "search" : -5 """,
