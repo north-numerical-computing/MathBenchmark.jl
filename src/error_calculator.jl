@@ -126,6 +126,7 @@ Reference computed in place with the MPFR routine `mpfr_<name>` at precision
 struct MPFRReference{name}
     prec::Int
 end
+
 function MPFRReference(name::AbstractString, prec::Integer)
     sym = Symbol(name)
     sym in MPFR_FUNCTIONS || throw(ArgumentError("no MPFR reference for function: $name"))
