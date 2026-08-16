@@ -46,7 +46,7 @@ The field `fastmath` can be set either to `0` or `1` to turn the Julia's fastmat
 The `search` field can be set to `seconds`, `minutes`, `hours`, `days`, `exhaustive`, or to an integer value; the first four options determine the approximate duration of testing one mathematical function. For example, the `seconds` option will mean that the input domain of each function is traversed in a fixed-size step which allows the testing of each function to take approximately one second. This is a very rough approximation - it is achieved by measuring the time to test the particular function on 100000 inputs per thread and extrapolating. The `search` field also accepts an integer value for the number of tests to undertake per thread: the domain is then sampled with a fixed stride so that the total number of tests is that value times the number of threads. In both cases the domain is traversed exhaustively if it contains fewer values than the number of tests.
 The search setting `exhaustive` tells the benchmark to test all possible inputs in the function's input domain, provided exactly in [functions.jl](./src/functions.jl) for a particular floating-point format.
 
-The tests can be run with `julia --project -e 'using Pkg; Pkg.test()'` (Julia 1.11 or later).
+The tests can be run with `julia --project -e 'using Pkg; Pkg.test()'`.
 
 ### References
 
