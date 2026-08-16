@@ -93,9 +93,15 @@ end
     end
 
     @testset "ordinals ($T)" for T in (Float16, Float32, Float64)
-        specials = T[-Inf, -floatmax(T), -1.0, -floatmin(T), -nextfloat(zero(T)), -0.0,
-                     0.0, nextfloat(zero(T)), floatmin(T), 1.0, floatmax(T), Inf]
-        for x in specials
+        # Check that `float_from_ordinal` is the inverse of `ordinal`.  Do exhaustive test
+        # only for `Float16`, and test only some special values for the other types.
+        round_trip_values = if T === Float16
+            reinterpret.(T, typemin(UInt16):typemax(UInt16))
+        else
+            T[-Inf, -floatmax(T), -1.0, -floatmin(T), -nextfloat(zero(T)), -0.0,
+              0.0, nextfloat(zero(T)), floatmin(T), 1.0, floatmax(T), Inf]
+        end
+        for x in round_trip_values
             @test Err.float_from_ordinal(T, Err.ordinal(x)) === x
         end
         @test Err.ordinal(T(-0.0)) == -1
@@ -113,16 +119,14 @@ end
         @test Err.number_of_floats(T(-0.0), T(0.0)) == 2
         @test Err.number_of_floats(-floatmax(T), floatmax(T)) ==
               2 * (Int128(reinterpret(Base.uinttype(T), floatmax(T))) + 1)
-        # Number of floats in an interval by brute force (Float16 only, it is small).
+        # Exhaustive test of `ordinal` property for Float16 only.
         if T === Float16
-            lo, hi = T(-2.5), T(3.25)
-            n = 1  # nextfloat skips +0.0 when coming from -0.0
-            x = lo
-            while x <= hi
-                n += 1
-                x = nextfloat(x)
+            for n in Err.ordinal(-floatmax(T)):Err.ordinal(floatmax(T))
+                # `nextfloat` skips +0.0 (ordinal == 0) when coming from -0.0 (ordinal == -1)
+                if n != -1
+                    @test n + 1 == Err.ordinal(nextfloat(Err.float_from_ordinal(T, n)))
+                end
             end
-            @test Err.number_of_floats(lo, hi) == n
         end
     end
 
