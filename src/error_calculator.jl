@@ -42,16 +42,17 @@ min_subnormal_exponent(::Type{T}) where {T<:IEEEFloat} = exponent(nextfloat(zero
 # ---------------------------------------------------------------------------
 
 """
-    ordinal(x::T) -> Int64
+    ordinal(x::T) -> Base.uinttype(T)
 
-Position of `x` among the values of its floating-point format, such that
+Position of `x` among the values of its floating-point format, as an unsigned
+integer of the same width: `x < y` if and only if `ordinal(x) < ordinal(y)`, and
 `ordinal(nextfloat(x)) == ordinal(x) + 1`; `-0.0` and `0.0` are distinct values
-with ordinals `-1` and `0`.
+with ordinals `2^(8 * sizeof(T) - 1) - 1` and `2^(8 * sizeof(T) - 1)` (the sign
+mask). Negative numbers get all their bits flipped, the others only the sign bit.
 """
 @inline function ordinal(x::T) where {T<:IEEEFloat}
     bits = reinterpret(Base.uinttype(T), x)
-    mag = Int64(bits & ~Base.sign_mask(T))
-    return signbit(x) ? -mag - 1 : mag
+    return signbit(x) ? ~bits : bits ⊻ Base.sign_mask(T)
 end
 
 """
@@ -59,18 +60,23 @@ end
 
 Inverse of [`ordinal`](@ref).
 """
-@inline function float_from_ordinal(::Type{T}, k::Integer) where {T<:IEEEFloat}
+@inline function float_from_ordinal(::Type{T}, k::Unsigned) where {T<:IEEEFloat}
     U = Base.uinttype(T)
-    return k >= 0 ? reinterpret(T, U(k)) : reinterpret(T, U(-k - 1) | Base.sign_mask(T))
+    k = U(k)
+    bits = iszero(k & Base.sign_mask(T)) ? ~k : k ⊻ Base.sign_mask(T)
+    return reinterpret(T, bits)
 end
 
 """
-    number_of_floats(lo::T, hi::T) -> Int128
+    number_of_floats(lo::T, hi::T) -> UInt64
 
 How many floating-point values lie in the closed interval `[lo, hi]`.
 """
-number_of_floats(lo::T, hi::T) where {T<:IEEEFloat} =
-    Int128(ordinal(hi)) - Int128(ordinal(lo)) + 1
+function number_of_floats(lo::T, hi::T) where {T<:IEEEFloat}
+    k_lo, k_hi = UInt64(ordinal(lo)), UInt64(ordinal(hi))
+    k_lo <= k_hi || throw(ArgumentError("empty interval [$lo, $hi]"))
+    return k_hi - k_lo + 1
+end
 
 # ---------------------------------------------------------------------------
 # Function resolution
@@ -320,12 +326,15 @@ Test `f` on the values with ordinals `k_first, k_first + step, ... <= k_last`.
 function test_range(reference, f::F, ::Type{T}, k_first::Integer, k_last::Integer, step::Integer) where {F, T<:IEEEFloat}
     ref = new_reference(reference)
     acc = Accumulator{T}()
-    k = Int128(k_first)
-    last = Int128(k_last)
-    step = Int128(step)
-    while k <= last
-        test_input!(acc, ref, f, float_from_ordinal(T, Int64(k)))
-        k += step
+    k, last, step = UInt64(k_first), UInt64(k_last), UInt64(step)
+    step >= 1 || throw(ArgumentError("the step must be positive"))
+    if k <= last
+        # Count the values to test down instead of comparing `k` to `last`, as
+        # `k + step` may wrap around after the last one.
+        for _ in 0:(last - k) ÷ step
+            test_input!(acc, ref, f, float_from_ordinal(T, k))
+            k += step
+        end
     end
     return Result(acc)
 end

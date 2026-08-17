@@ -28,17 +28,29 @@ const TIME_BUDGET_NS = Dict("seconds" => 10^9,
                             "days"    => 24 * 3600 * 10^9)
 
 """
-    split_range(k_lo, k_hi, nchunks) -> Vector{Tuple{Int128, Int128}}
+    split_range(k_lo, k_hi, nchunks) -> Vector{Tuple{UInt64, UInt64}}
 
 Split the integer range `k_lo:k_hi` into at most `nchunks` contiguous, non-empty
 chunks of nearly equal length.
 """
 function split_range(k_lo::Integer, k_hi::Integer, nchunks::Integer)
-    lo = Int128(k_lo)
-    n = Int128(k_hi) - lo + 1
-    n >= 1 || throw(ArgumentError("empty range $k_lo:$k_hi"))
-    nchunks = clamp(Int128(nchunks), 1, n)
-    return [(lo + div((i - 1) * n, nchunks), lo + div(i * n, nchunks) - 1) for i in 1:nchunks]
+    lo, hi = UInt64(k_lo), UInt64(k_hi)
+    lo <= hi || throw(ArgumentError("empty range $k_lo:$k_hi"))
+    n = hi - lo + 1
+    n >= 1 || throw(ArgumentError("range $k_lo:$k_hi too long"))   # 2^64 values
+    nchunks = clamp(UInt64(nchunks), 1, n)
+    # The remainder is spread over the first chunks, one extra value each. The
+    # boundaries are accumulated rather than computed as div(i * n, nchunks),
+    # whose product overflows for the domains spanning almost all of a format.
+    len, extra = divrem(n, nchunks)
+    chunks = Vector{Tuple{UInt64, UInt64}}(undef, nchunks)
+    a = lo
+    for i in 1:nchunks
+        b = a + len + (i <= extra) - 1
+        chunks[i] = (a, b)
+        a = b + 1
+    end
+    return chunks
 end
 
 """
@@ -52,7 +64,7 @@ are combined.
 function test_domain(reference, f, ::Type{T}, lo::T, hi::T, step::Integer;
                      nchunks::Integer = CHUNKS_PER_THREAD * Threads.nthreads()) where {T}
     k_lo = Err.ordinal(lo)
-    step = Int128(step)
+    step = UInt64(step)
     # With many threads, Julia (seen on 1.11, 1.12 and nightly with 96 threads)
     # can deadlock when a garbage collection is requested while a thread holds
     # MPFR's internal cache lock (taken e.g. to compute pi for acos): the lock
@@ -64,9 +76,12 @@ function test_domain(reference, f, ::Type{T}, lo::T, hi::T, step::Integer;
     gc_enabled = GC.enable(false)
     try
         tasks = map(split_range(k_lo, Err.ordinal(hi), nchunks)) do (a, b)
-            # First sampled ordinal in this chunk.
-            first = k_lo + cld(a - k_lo, step) * step
-            Threads.@spawn Err.test_range(reference, f, T, first, b, step)
+            # Offset of the first sampled ordinal (`k_lo + j * step`) at or after
+            # `a`; the chunk holds no sampled value when the offset exceeds its
+            # length (formed this way, no intermediate wraps around).
+            offset = (step - (a - k_lo) % step) % step
+            Threads.@spawn(offset <= b - a ? Err.test_range(reference, f, T, a + offset, b, step) :
+                                             Err.Result{T}())
         end
         return reduce(Err.combine, fetch.(tasks))
     finally
@@ -104,19 +119,19 @@ function run_function(func_name::AbstractString, ::Type{T}, lo::T, hi::T, search
     nthreads = Threads.nthreads()
     num_floats = Err.number_of_floats(lo, hi)
 
-    # Number of tests to run in the domain, and the corresponding stride. A
-    # budget allowing more tests than there are values falls back to the
-    # exhaustive search.
-    ntests = if search == "exhaustive"
+    # Number of tests per thread to run in the domain.
+    tests_per_thread = if search == "exhaustive"
         num_floats
     elseif search isa Integer
-        # An integer is the number of tests per thread.
-        Int128(search) * nthreads
+        UInt64(search)
     else
-        Int128(tests_per_thread_in_budget(reference, f, T, lo, hi, TIME_BUDGET_NS[search])) * nthreads
+        UInt64(tests_per_thread_in_budget(reference, f, T, lo, hi, TIME_BUDGET_NS[search]))
     end
-    exhaustive = ntests >= num_floats
-    step = exhaustive ? Int128(1) : cld(num_floats, ntests)
+    # A budget allowing more tests than there are values falls back to the
+    # exhaustive search. The comparison is made per thread so that the total
+    # number of tests is only formed when it is below the number of values.
+    exhaustive = tests_per_thread >= cld(num_floats, nthreads)
+    step = exhaustive ? UInt64(1) : cld(num_floats, tests_per_thread * nthreads)
     ntests = cld(num_floats, step)
 
     if exhaustive

@@ -104,26 +104,28 @@ end
         for x in round_trip_values
             @test Err.float_from_ordinal(T, Err.ordinal(x)) === x
         end
-        @test Err.ordinal(T(-0.0)) == -1
-        @test Err.ordinal(T(0.0)) == 0
-        @test Err.ordinal(-nextfloat(zero(T))) == -2
+        @test Err.ordinal(T(-0.0)) == Base.sign_mask(T) - 1
+        @test Err.ordinal(T(0.0)) == Base.sign_mask(T)
+        @test Err.ordinal(-nextfloat(zero(T))) == Base.sign_mask(T) - 2
         # Consecutive floats have consecutive ordinals.
         for x in T[-1.0, -floatmin(T), -nextfloat(zero(T)), floatmin(T), 1.0, floatmax(T)]
             @test Err.ordinal(nextfloat(x)) == Err.ordinal(x) + 1
             @test Err.ordinal(prevfloat(x)) == Err.ordinal(x) - 1
         end
         # Unlike nextfloat/prevfloat, ordinals do not skip one of the zeros.
-        @test Err.ordinal(nextfloat(T(-0.0))) == 1
-        @test Err.ordinal(prevfloat(T(0.0))) == -2
+        @test Err.ordinal(nextfloat(T(-0.0))) == Base.sign_mask(T) + 1
+        @test Err.ordinal(prevfloat(T(0.0))) == Base.sign_mask(T) - 2
         @test Err.number_of_floats(T(1), T(1)) == 1
         @test Err.number_of_floats(T(-0.0), T(0.0)) == 2
+        @test_throws ArgumentError Err.number_of_floats(T(0.0), T(-0.0))
+        @test_throws ArgumentError Err.number_of_floats(T(1), T(0))
         @test Err.number_of_floats(-floatmax(T), floatmax(T)) ==
               2 * (Int128(reinterpret(Base.uinttype(T), floatmax(T))) + 1)
         # Exhaustive test of `ordinal` property for Float16 only.
         if T === Float16
             for n in Err.ordinal(-floatmax(T)):Err.ordinal(floatmax(T))
-                # `nextfloat` skips +0.0 (ordinal == 0) when coming from -0.0 (ordinal == -1)
-                if n != -1
+                # `nextfloat` skips +0.0 when coming from -0.0
+                if n != Base.sign_mask(T) - 1
                     @test n + 1 == Err.ordinal(nextfloat(Err.float_from_ordinal(T, n)))
                 end
             end
@@ -131,8 +133,12 @@ end
     end
 
     @testset "split_range" begin
-        for (lo, hi, nchunks) in ((0, 99, 7), (-50, 49, 8), (3, 3, 4), (-5, 5, 100),
-                                  (Err.ordinal(-floatmax(Float64)), Err.ordinal(floatmax(Float64)), 128))
+        # The last cases are the whole binary64 line, 2^64 - 2^53 values: chunk
+        # boundaries computed as div(i * n, nchunks) would overflow.
+        whole_line = (Err.ordinal(-floatmax(Float64)), Err.ordinal(floatmax(Float64)))
+        for (lo, hi, nchunks) in ((0, 99, 7), (50, 149, 8), (3, 3, 4), (5, 15, 100),
+                                  (typemax(UInt64) - 9, typemax(UInt64), 4),
+                                  (whole_line..., 4), (whole_line..., 8 * 96))
             chunks = MathBenchmark.split_range(lo, hi, nchunks)
             @test length(chunks) == min(nchunks, Int128(hi) - Int128(lo) + 1)
             @test first(chunks)[1] == lo && last(chunks)[2] == hi
@@ -142,6 +148,7 @@ end
             @test maximum(lens) - minimum(lens) <= 1
         end
         @test_throws ArgumentError MathBenchmark.split_range(5, 4, 3)
+        @test_throws ArgumentError MathBenchmark.split_range(0, typemax(UInt64), 3)   # 2^64 values
     end
 
     @testset "ulp error" begin
@@ -264,6 +271,29 @@ end
             r8 = Err.test_values(Err.MPFRReference("tanpi", 63), tanpi, T[0.5, -1.5, 0.25])
             @test r8.ninfs == 2 && r8.nfailures == 0 && r8.ntests == 3
         end
+    end
+
+    @testset "no wrap-around at the top of the ordinals" begin
+        ref = Err.MPFRReference("exp", 127)
+        top = Err.ordinal(floatmax(Float64))
+        # `k + step` after the last value exceeds typemax(UInt64): three tests,
+        # not an endless loop.
+        r = Err.test_range(ref, exp, Float64, top - 2^61, top, 2^60)
+        @test r.ntests == 3
+        # An empty range and a zero step are not endless loops either.
+        @test Err.test_range(ref, exp, Float64, top, top - 1, 1).ntests == 0
+        @test_throws ArgumentError Err.test_range(ref, exp, Float64, 0, 10, 0)
+        # A stride longer than the domain: only its first value is tested; the
+        # chunks after the first hold no sampled value (their first sampled
+        # ordinal, k_lo + step, is past typemax(UInt64)).
+        r = MathBenchmark.test_domain(ref, exp, Float64, 1.0, floatmax(Float64), UInt64(2)^63; nchunks=4)
+        @test r.ntests == 1 && r.input == 1.0
+        # A number of tests per thread whose total overflows falls back to the
+        # exhaustive search of a small domain.
+        r = redirect_stdout(devnull) do
+            MathBenchmark.run_function("exp", Float16, Float16(1), Float16(1.5), typemax(Int), false)
+        end
+        @test r.ntests == Err.number_of_floats(Float16(1), Float16(1.5))
     end
 
     @testset "calibration" begin
