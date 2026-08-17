@@ -91,32 +91,41 @@ end
 
 """
     tests_per_thread_in_budget(reference, f, ::Type{T}, lo, hi, budget_ns;
-                               ntests = CALIBRATION_TESTS) -> Int
+                               ntests = CALIBRATION_TESTS,
+                               nthreads = Threads.nthreads(),
+                               ) -> Int
 
 Estimate how many tests per thread of `f` fit in `budget_ns` nanoseconds by timing
 `ntests` tests per thread (after a short warm-up run, so that the compilation of
 the kernels for `f` is not counted).
 """
 function tests_per_thread_in_budget(reference, f, ::Type{T}, lo::T, hi::T, budget_ns;
-                                    ntests::Integer = CALIBRATION_TESTS) where {T}
-    nthreads = Threads.nthreads()
+                                    ntests::Integer = CALIBRATION_TESTS,
+                                    nthreads = Threads.nthreads(),
+                                    ) where {T}
     num_floats = Err.number_of_floats(lo, hi)
-    stride(n) = max(cld(num_floats, n), 1)
-    test_domain(reference, f, T, lo, hi, stride(WARMUP_TESTS * nthreads))
-    elapsed = @elapsed test_domain(reference, f, T, lo, hi, stride(ntests * nthreads))
+    # The stride divides by the thread count and the tests per thread in turn:
+    # the total number of tests, their product, can overflow for huge thread
+    # counts.
+    stride(n) = max(cld(cld(num_floats, UInt64(nthreads)), UInt64(n)), 1)
+    test_domain(reference, f, T, lo, hi, stride(WARMUP_TESTS))
+    elapsed = @elapsed test_domain(reference, f, T, lo, hi, stride(ntests))
     return max(floor(Int, budget_ns / (elapsed * 1e9 / ntests)), 1)
 end
 
 """
-    run_function(func_name, ::Type{T}, lo, hi, search, fastmath_on) -> Result{T}
+    run_function(func_name, ::Type{T}, lo, hi, search, fastmath_on,
+                 nthreads = Threads.nthreads(),
+                 ) -> Result{T}
 
 Test the function `func_name` on its input domain `[lo, hi]` with the search
 strategy `search` (see `Config.BenchmarkTask`), then on its special inputs.
 """
-function run_function(func_name::AbstractString, ::Type{T}, lo::T, hi::T, search, fastmath_on::Bool) where {T}
+function run_function(func_name::AbstractString, ::Type{T}, lo::T, hi::T, search, fastmath_on::Bool;
+                      nthreads = Threads.nthreads(),
+                      ) where {T}
     f = Err.resolve_function(func_name, fastmath_on)
     reference = Err.MPFRReference(func_name, Err.reference_precision(T))
-    nthreads = Threads.nthreads()
     num_floats = Err.number_of_floats(lo, hi)
 
     # Number of tests per thread to run in the domain.
@@ -125,7 +134,8 @@ function run_function(func_name::AbstractString, ::Type{T}, lo::T, hi::T, search
     elseif search isa Integer
         UInt64(search)
     else
-        UInt64(tests_per_thread_in_budget(reference, f, T, lo, hi, TIME_BUDGET_NS[search]))
+        UInt64(tests_per_thread_in_budget(reference, f, T, lo, hi, TIME_BUDGET_NS[search];
+                                          nthreads))
     end
     # A budget allowing more tests than there are values falls back to the
     # exhaustive search. The comparison is made per thread so that the total

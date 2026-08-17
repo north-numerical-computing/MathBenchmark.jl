@@ -302,6 +302,20 @@ end
         @test n isa Int && n >= 1
         # Even a vanishing budget asks for at least one test.
         @test MathBenchmark.tests_per_thread_in_budget(ref, exp, Float64, -1.0, 1.0, 0; ntests=10) == 1
+        # Thread counts larger than the number of values in the domain fall
+        # back to exhaustive calibration runs (stride 1), here over a small
+        # Float16 domain.
+        ref16 = Err.MPFRReference("exp", Err.reference_precision(Float16))
+        lo, hi = Float16(1), Float16(1.5)
+        @test MathBenchmark.tests_per_thread_in_budget(ref16, exp, Float16, lo, hi, 10^6;
+                                                       ntests=10, nthreads=10^6) >= 1
+        # Thread counts whose product with the number of tests overflows: the
+        # stride is computed without forming the product. `2^63 * 10` wraps to
+        # exactly 0, which used to raise a DivideError.
+        for nthreads in (typemax(Int), UInt64(2)^63, typemax(UInt64))
+            @test MathBenchmark.tests_per_thread_in_budget(ref16, exp, Float16, lo, hi, 10^6;
+                                                           ntests=10, nthreads) >= 1
+        end
     end
 
     @testset "run_mathbenchmark" begin
