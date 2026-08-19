@@ -38,7 +38,7 @@ min_subnormal_exponent(::Type{T}) where {T<:IEEEFloat} = exponent(nextfloat(zero
 # Ordinals: a bijection between the floating-point numbers of a format and a
 # contiguous range of integers that preserves the ordering, so that domains,
 # chunks and strides can be handled with plain integer arithmetic:
-#   ordinal(-0.0) == -1, ordinal(0.0) == 0, ordinal(nextfloat(x)) == ordinal(x) + 1
+#   ordinal(nextfloat(x)) == ordinal(x) + 1
 # ---------------------------------------------------------------------------
 
 """

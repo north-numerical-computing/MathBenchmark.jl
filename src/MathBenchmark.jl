@@ -155,7 +155,7 @@ function run_function(func_name::AbstractString, ::Type{T}, lo::T, hi::T, search
 
     result = test_domain(reference, f, T, lo, hi, step)
 
-    # Inputs known to be hard for other libraries.
+    # Test manually selected inputs, such as the hardest-to-round points.
     special_inputs = Functions.special_inputs(T, func_name)
     if !isempty(special_inputs)
         result = Err.combine(result, Err.test_values(reference, f, special_inputs))
@@ -191,11 +191,11 @@ function run_task(task::Config.BenchmarkTask, output_dir::AbstractString)
                 $(task.rounding) Fastmath: $(task.fastmath)\n", color=:green)
 
     # Results table formatting. Each task specified in the JSON file has a
-    # result .txt file named accordingly, with the input and output printed
-    # with 17 significant digits (enough to round-trip a binary64 value) and
-    # the reference with 21, and a HEX_ file with the bits of input and output.
-    # The Fastmath column tells whether the fastmath variant of the function
-    # was tested.
+    # result .txt file named accordingly, with the input and output printed with
+    # 17 significant digits (enough to print all decimal digits representable in
+    # a binary64 value) and the reference with 21, and a HEX_ file with the bits
+    # of input and output.  The Fastmath column tells whether the fastmath
+    # variant of the function was tested.
     file = joinpath(output_dir, "$task_name.txt")
     file_hex = joinpath(output_dir, "HEX_$task_name.txt")
     write(file, Printf.format(Printf.Format("%-10s %8s %15s %30s %30s %30s %20s %20s %20s\n"),
