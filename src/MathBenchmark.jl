@@ -1,7 +1,7 @@
 module MathBenchmark
 
-include("file_io.jl")
-using .FileIO
+include("config.jl")
+using .Config
 
 include("functions.jl")
 using .Functions
@@ -10,263 +10,226 @@ include("error_calculator.jl")
 using .Err
 
 using Printf
-using Format
-using Match
-using Logging
 
+# Number of tasks spawned per thread when testing a function. More chunks than
+# threads let the scheduler balance the load: the cost of the reference
+# computation varies with the magnitude of the input.
+const CHUNKS_PER_THREAD = 8
 
-mutable struct PaddedFloat64
-    val::Float64
-    padding::NTuple{7, Float64}
-end
+# Number of tests per thread used to estimate the speed of a function, and to
+# warm up (compile) the kernels before timing them.
+const CALIBRATION_TESTS = 100_000
+const WARMUP_TESTS = 100
 
-function check_run_time(ns_budget, start_float, end_float, t_num_floats,
-                        func_name, data_format, rounding, fastmath_on,
-                        search)
-    # Measure the time taken to test one invocation of the function and
-    # calculate the number of tests to do according to the search strategy
-    # duration chosen by the user.
-    start_time = time_ns()
-    spawn_threads(start_float, end_float, t_num_floats,
-                  func_name, data_format, rounding, fastmath_on,
-                  100000, search)
-    end_time = time_ns()
-    elapsed_time = (end_time - start_time)/100000
-    return floor(ns_budget/elapsed_time)
-end
+# Time budget, in nanoseconds, of the time-based search strategies.
+const TIME_BUDGET_NS = Dict("seconds" => 10^9,
+                            "minutes" => 60 * 10^9,
+                            "hours"   => 3600 * 10^9,
+                            "days"    => 24 * 3600 * 10^9)
 
-const max_error      = Ref{Vector{PaddedFloat64}}()
-const max_input      = Ref{Vector{PaddedFloat64}}()
-const max_output     = Ref{Vector{PaddedFloat64}}()
-const max_ref_out    = Ref{Vector{PaddedFloat64}}()
-const number_of_tests = Ref{Vector{PaddedFloat64}}()
-const number_of_infs = Ref{Vector{PaddedFloat64}}()
+"""
+    split_range(k_lo, k_hi, nchunks) -> Vector{Tuple{UInt64, UInt64}}
 
-function spawn_threads(start_float, end_float, t_num_floats,
-                       func_name, data_format, rounding, fastmath_on,
-                       tests_to_do, search)
-
-    thread_tasks = Task[]
-    for tn in 1:Threads.nthreads()
-
-        # Calculate the sub-interval end for this thread.
-        sub_int_start = Err.nextfloatn(start_float, (tn-1)*t_num_floats, data_format)
-        if tn==Threads.nthreads()
-            sub_int_end = end_float
-        else
-            sub_int_end = Err.nextfloatn(sub_int_start, t_num_floats-1, data_format)
-        end
-
-        # Run all intervals except the last in the separate threads.
-        if (tn != Threads.nthreads())
-            if search == "exhaustive"
-                t = Threads.@spawn (max_error[][tn].val,
-                                    max_input[][tn].val,
-                                    max_output[][tn].val,
-                                    max_ref_out[][tn].val,
-                                    number_of_tests[][tn].val,
-                                    number_of_infs[][tn].val) =
-                                        Err.function_max_error_exhaustive(
-                                            func_name, data_format, rounding, fastmath_on,
-                                            sub_int_start, sub_int_end)
-            else
-                t = Threads.@spawn (max_error[][tn].val,
-                                    max_input[][tn].val,
-                                    max_output[][tn].val,
-                                    max_ref_out[][tn].val,
-                                    number_of_tests[][tn].val,
-                                    number_of_infs[][tn].val) =
-                                        Err.function_max_error_fixed_step(
-                                            func_name, data_format, rounding, fastmath_on,
-                                            sub_int_start, sub_int_end, tests_to_do)
-            end
-            push!(thread_tasks, t)
-        else
-            # Run the last interval in the main thread.
-            if search == "exhaustive"
-                (max_error[][tn].val,
-                 max_input[][tn].val,
-                 max_output[][tn].val,
-                 max_ref_out[][tn].val,
-                 number_of_tests[][tn].val,
-                 number_of_infs[][tn].val) =
-                     Err.function_max_error_exhaustive(
-                         func_name, data_format, rounding, fastmath_on,
-                         sub_int_start, sub_int_end)
-            else
-                (max_error[][tn].val,
-                 max_input[][tn].val,
-                 max_output[][tn].val,
-                 max_ref_out[][tn].val,
-                 number_of_tests[][tn].val,
-                 number_of_infs[][tn].val) =
-                     Err.function_max_error_fixed_step(
-                         func_name, data_format, rounding, fastmath_on,
-                         sub_int_start, sub_int_end, tests_to_do)
-            end
-        end
+Split the integer range `k_lo:k_hi` into at most `nchunks` contiguous, non-empty
+chunks of nearly equal length.
+"""
+function split_range(k_lo::Integer, k_hi::Integer, nchunks::Integer)
+    lo, hi = UInt64(k_lo), UInt64(k_hi)
+    lo <= hi || throw(ArgumentError("empty range $k_lo:$k_hi"))
+    n = hi - lo + 1
+    n >= 1 || throw(ArgumentError("range $k_lo:$k_hi too long"))   # 2^64 values
+    nchunks = clamp(UInt64(nchunks), 1, n)
+    # The remainder is spread over the first chunks, one extra value each. The
+    # boundaries are accumulated rather than computed as div(i * n, nchunks),
+    # whose product overflows for the domains spanning almost all of a format.
+    len, extra = divrem(n, nchunks)
+    chunks = Vector{Tuple{UInt64, UInt64}}(undef, nchunks)
+    a = lo
+    for i in 1:nchunks
+        b = a + len + (i <= extra) - 1
+        chunks[i] = (a, b)
+        a = b + 1
     end
-
-    wait.(thread_tasks)
-
-    return (max_error, max_input, max_output, max_ref_out, number_of_tests, number_of_infs)
+    return chunks
 end
 
-config_file = "config.json"
-mkpath("output")
+"""
+    test_domain(reference, f, ::Type{T}, lo, hi, step; nchunks) -> Result{T}
 
-function run_mathbenchmark()
-
-    # Read and validate testing tasks specified in the json file.
-    tasks = FileIO.read_input_file(config_file)
-
-    max_error[] =
-        [PaddedFloat64(0.0, ntuple(_ -> 0.0, 7)) for _ in 1: Threads.nthreads()+1]
-    max_input[] =
-        [PaddedFloat64(0.0, ntuple(_ -> 0.0, 7)) for _ in 1: Threads.nthreads()+1]
-    max_output[] =
-        [PaddedFloat64(0.0, ntuple(_ -> 0.0, 7)) for _ in 1: Threads.nthreads()+1]
-    max_ref_out[] =
-        [PaddedFloat64(0.0, ntuple(_ -> 0.0, 7)) for _ in 1: Threads.nthreads()+1]
-    number_of_tests[] =
-        [PaddedFloat64(0.0, ntuple(_ -> 0.0, 7)) for _ in 1: Threads.nthreads()+1]
-    number_of_infs[] =
-        [PaddedFloat64(0.0, ntuple(_ -> 0.0, 7)) for _ in 1: Threads.nthreads()+1]
-
-    for (task_name, task_details) in tasks
-
-        printstyled("Validating task: $task_name\n", color=:blue)
-        (data_format, search, rounding, fastmath_on) =
-            FileIO.validate_tasks(task_details)
-
-        @match rounding begin
-            "RN" => :RoundNearest
-            "RZ" => :RoundToZero
-            "RD" => :RoundDown
-            "RU" => :RoundUp
+Test `f` on the values `x` of `[lo, hi]` whose ordinal is `ordinal(lo) + j * step`,
+i.e. every `step`-th value starting from `lo` (`step = 1` is exhaustive). The
+domain is split into `nchunks` chunks tested by concurrent tasks whose results
+are combined.
+"""
+function test_domain(reference, f, ::Type{T}, lo::T, hi::T, step::Integer;
+                     nchunks::Integer = CHUNKS_PER_THREAD * Threads.nthreads()) where {T}
+    k_lo = Err.ordinal(lo)
+    step = UInt64(step)
+    # With many threads, Julia (seen on 1.11, 1.12 and nightly with 96 threads)
+    # can deadlock when a garbage collection is requested while a thread holds
+    # MPFR's internal cache lock (taken e.g. to compute pi for acos): the lock
+    # holder waits for the collection at the safepoint inside
+    # jl_gc_counted_malloc, which MPFR uses for its temporaries, while the
+    # threads waiting for the lock sit in a ccall and never reach a safepoint,
+    # so the collection cannot start. The kernels do not allocate Julia
+    # objects, so the collector is simply disabled while the tasks run.
+    gc_enabled = GC.enable(false)
+    try
+        tasks = map(split_range(k_lo, Err.ordinal(hi), nchunks)) do (a, b)
+            # Offset of the first sampled ordinal (`k_lo + j * step`) at or after
+            # `a`; the chunk holds no sampled value when the offset exceeds its
+            # length (formed this way, no intermediate wraps around).
+            offset = (step - (a - k_lo) % step) % step
+            Threads.@spawn(offset <= b - a ? Err.test_range(reference, f, T, a + offset, b, step) :
+                                             Err.Result{T}())
         end
+        return reduce(Err.combine, fetch.(tasks))
+    finally
+        GC.enable(gc_enabled)
+    end
+end
 
-        if data_format == 1
-            printstyled("Skipping task: $task_name\n\n", color=:red)
-            continue
+"""
+    tests_per_thread_in_budget(reference, f, ::Type{T}, lo, hi, budget_ns;
+                               ntests = CALIBRATION_TESTS,
+                               nthreads = Threads.nthreads(),
+                               ) -> Int
+
+Estimate how many tests per thread of `f` fit in `budget_ns` nanoseconds by timing
+`ntests` tests per thread (after a short warm-up run, so that the compilation of
+the kernels for `f` is not counted).
+"""
+function tests_per_thread_in_budget(reference, f, ::Type{T}, lo::T, hi::T, budget_ns;
+                                    ntests::Integer = CALIBRATION_TESTS,
+                                    nthreads = Threads.nthreads(),
+                                    ) where {T}
+    num_floats = Err.number_of_floats(lo, hi)
+    # The stride divides by the thread count and the tests per thread in turn:
+    # the total number of tests, their product, can overflow for huge thread
+    # counts.
+    stride(n) = max(cld(cld(num_floats, UInt64(nthreads)), UInt64(n)), 1)
+    test_domain(reference, f, T, lo, hi, stride(WARMUP_TESTS))
+    elapsed = @elapsed test_domain(reference, f, T, lo, hi, stride(ntests))
+    return max(floor(Int, budget_ns / (elapsed * 1e9 / ntests)), 1)
+end
+
+"""
+    run_function(func_name, ::Type{T}, lo, hi, search, fastmath_on,
+                 nthreads = Threads.nthreads(),
+                 ) -> Result{T}
+
+Test the function `func_name` on its input domain `[lo, hi]` with the search
+strategy `search` (see `Config.BenchmarkTask`), then on its special inputs.
+"""
+function run_function(func_name::AbstractString, ::Type{T}, lo::T, hi::T, search, fastmath_on::Bool;
+                      nthreads = Threads.nthreads(),
+                      ) where {T}
+    f = Err.resolve_function(func_name, fastmath_on)
+    reference = Err.MPFRReference(func_name, Err.reference_precision(T))
+    num_floats = Err.number_of_floats(lo, hi)
+
+    # Number of tests per thread to run in the domain.
+    tests_per_thread = if search == "exhaustive"
+        num_floats
+    elseif search isa Integer
+        UInt64(search)
+    else
+        UInt64(tests_per_thread_in_budget(reference, f, T, lo, hi, TIME_BUDGET_NS[search];
+                                          nthreads))
+    end
+    # A budget allowing more tests than there are values falls back to the
+    # exhaustive search. The comparison is made per thread so that the total
+    # number of tests is only formed when it is below the number of values.
+    exhaustive = tests_per_thread >= cld(num_floats, nthreads)
+    step = exhaustive ? UInt64(1) : cld(num_floats, tests_per_thread * nthreads)
+    ntests = cld(num_floats, step)
+
+    if exhaustive
+        @printf("Running %d tests (search strategy exhaustive) for the function \
+                 %s with %d threads \n", ntests, func_name, nthreads)
+    else
+        @printf("Running %d tests (search strategy \"%s\") for the function \
+                 %s with %d threads \n", ntests, search, func_name, nthreads)
+    end
+    flush(stdout)
+
+    result = test_domain(reference, f, T, lo, hi, step)
+
+    # Test manually selected inputs, such as the hardest-to-round points.
+    special_inputs = Functions.special_inputs(T, func_name)
+    if !isempty(special_inputs)
+        result = Err.combine(result, Err.test_values(reference, f, special_inputs))
+    end
+    return result
+end
+
+"""
+    run_mathbenchmark(config_file = "config.json"; output_dir = "output")
+
+Run the tasks described in the JSON file `config_file` and write one pair of result
+files (`<task>.txt` and `HEX_<task>.txt`) per task in `output_dir`.
+"""
+function run_mathbenchmark(config_file::AbstractString = "config.json";
+                           output_dir::AbstractString = "output")
+
+    # Read and validate the testing tasks specified in the json file. Invalid
+    # tasks throw an informative error, stopping the benchmark before anything
+    # is run.
+    tasks = Config.read_config(config_file)
+    mkpath(output_dir)
+
+    for task in tasks
+        run_task(task, output_dir)
+    end
+end
+
+function run_task(task::Config.BenchmarkTask, output_dir::AbstractString)
+    task_name = task.name
+    T = Err.float_type(task.format)
+    printstyled("Running task: $task_name\n", color=:blue)
+    printstyled("Format: $(task.format) Search: $(task.search) Rounding: \
+                $(task.rounding) Fastmath: $(task.fastmath)\n", color=:green)
+
+    # Results table formatting. Each task specified in the JSON file has a
+    # result .txt file named accordingly, with the input and output printed with
+    # 17 significant digits (enough to print all decimal digits representable in
+    # a binary64 value) and the reference with 21, and a HEX_ file with the bits
+    # of input and output.  The Fastmath column tells whether the fastmath
+    # variant of the function was tested.
+    file = joinpath(output_dir, "$task_name.txt")
+    file_hex = joinpath(output_dir, "HEX_$task_name.txt")
+    write(file, Printf.format(Printf.Format("%-10s %8s %15s %30s %30s %30s %20s %20s %20s\n"),
+                              "Function", "Fastmath", "ULPs", "Input", "Output", "MPFR", "Tests", "Infs", "Failures"))
+    write(file_hex, Printf.format(Printf.Format("%-10s %8s %15s %30s %30s %20s %20s %20s\n"),
+                                  "Function", "Fastmath", "ULPs", "Input", "Output", "Tests", "Infs", "Failures"))
+    fe = Printf.Format("%-10s %8s %15.10f %30.16e %30.16e %30.20e %20d %20d %20d\n")
+    fe_hex = Printf.Format("%-10s %8s %15.10f %#30x %#30x %20d %20d %20d\n")
+
+    # Loop through the functions list of a particular format, in alphabetical
+    # order so that result files are comparable across runs and Julia versions.
+    domains = Functions.functions_dict[task.format]
+    for func_name in sort!(collect(keys(domains)))
+        lo, hi = domains[func_name]
+        r = run_function(func_name, T, lo, hi, task.search, task.fastmath)
+        # Whether the fastmath variant of the function was actually tested:
+        # some functions do not have one, and are tested as is even when the
+        # task asks for fastmath.
+        fastmath = task.fastmath &&
+            Err.resolve_function(func_name, true) !== Err.resolve_function(func_name, false)
+
+        # Report the maximum error and the corresponding values to the output files.
+        max_error = trunc(r.max_error, digits=10)
+        open(file, "a") do io
+            Printf.format(io, fe, func_name, fastmath, max_error, Float64(r.input), Float64(r.output),
+                          r.reference, r.ntests, r.ninfs, r.nfailures)
         end
-
-        # Set MPFR global precision to be 20 bits more than the specified format's.
-        if (data_format == "binary16")
-            setprecision(BigFloat, 63)
-        elseif (data_format == "binary32")
-            setprecision(BigFloat, 63)
-        else
-            setprecision(BigFloat, 127)
-        end
-
-        printstyled("Format: $data_format Search: $search Rounding: \
-                    $rounding Fastmath: $fastmath_on\n", color=:green)
-
-        # Results table formatting. Each task specied in the JSON file has
-        # a result .txt file named accordingly.
-        fe = FormatExpr("{1:<10s} {2:>15s} {3:>30s} {4:>30s} {5:>30s} {6:>20s} {7:>20s}\n")
-        result_table_head = format(fe, "Function", "ULPs", "Input", "Output",
-                                   "MPFR", "Tests", "Infs")
-        fe_hex = FormatExpr("{1:<10s} {2:>15s} {3:>30s} {4:>30s} {5:>20s}\n")
-        result_table_head_hex = format(fe_hex, "Function", "ULPs", "Input", "Output",
-                                       "Tests")
-        open("output/$task_name.txt", "w") do file
-            write(file, result_table_head)
-        end
-        open("output/HEX_$task_name.txt", "w") do file_hex
-            write(file_hex, result_table_head_hex)
-        end
-        fe = FormatExpr("{1:<10s} {2:>15.10f} {3:>30.15e} \
-                    {4:>30.15e} {5:>30.15e} {6:>20d} {7:>20d}\n")
-        fe_hex = FormatExpr("{1:<10s} {2:>15.10f} {3:>#30x} {4:>#30x} \
-                    {5:>20d}\n")
-
-        # Caluclate how many tests of this functions can be done in the
-        # running time, approximately, by a single thread.
-        ns_budget = 0
-        if search == "seconds"
-            ns_budget = 10^9
-        elseif search == "minutes"
-            ns_budget = 60*10^9
-        elseif search == "hours"
-            ns_budget = 3600*10^9
-        elseif search == "days"
-            ns_budget = 24*3600*10^9
-        end
-
-        # Loop through the functions list of a particular format.
-        for (func_name, v) in Functions.functions_dict[data_format]
-
-            start_float = Functions.functions_dict[data_format][func_name][1]
-            end_float = Functions.functions_dict[data_format][func_name][2]
-
-            # Check the number of floating-point numbers in the function's input
-            # domain; used in calculating sub-intervals for the different threads.
-            num_floats = Err.number_of_floats_in_interval(
-                start_float, end_float, data_format)
-            t_num_floats = floor(num_floats/Threads.nthreads())
-
-            tests_to_do = 0
-            if isa(search, Integer)
-                tests_to_do = search;
-            elseif search != "exhaustive"
-                tests_to_do = check_run_time(ns_budget, start_float, end_float, t_num_floats,
-                                             func_name, data_format, rounding, fastmath_on, search)
-                if tests_to_do*Threads.nthreads() > num_floats
-                    search = "exhaustive"
-                end
-            end
-
-            if search == "exhaustive"
-                @printf("Running %d tests (search strategy exhaustive) for the function \
-                         %s with %d threads \n", num_floats, func_name, Threads.nthreads())
-            else
-                @printf("Running %d tests (search strategy \"%s\") for the function \
-                    %s with %d threads \n",
-                        tests_to_do*Threads.nthreads(), search, func_name, Threads.nthreads())
-            end
-            flush(stdout)
-
-            spawn_threads(start_float, end_float, t_num_floats,
-                          func_name, data_format, rounding, fastmath_on,
-                          tests_to_do, search)
-
-            # Run tests on special inputs
-            if (data_format != "binary16")
-                input_set = Functions.spec_inputs_dict[data_format][func_name]
-                (max_error[][Threads.nthreads()+1].val,
-                 max_input[][Threads.nthreads()+1].val,
-                 max_output[][Threads.nthreads()+1].val,
-                 max_ref_out[][Threads.nthreads()+1].val,
-                 number_of_tests[][Threads.nthreads()+1].val,
-                 number_of_infs[][Threads.nthreads()+1].val) =
-                     Err.function_max_error_special_inputs(
-                         func_name, data_format, rounding, fastmath_on, input_set)
-            else
-                number_of_infs[][Threads.nthreads()+1].val = 0.0
-            end
-
-            # Find index of the maximum error and report to the output file.
-            i = findmax([s.val for s in max_error[]])[2]
-            line = format(fe, func_name, trunc(max_error[][i].val, digits=10),
-                          max_input[][i].val, max_output[][i].val,
-                          max_ref_out[][i].val, sum([s.val for s in number_of_tests[]]),
-                          sum([s.val for s in number_of_infs[]]))
-            open("output/$task_name.txt", "a") do file
-                write(file, line);
-            end
-            line = format(fe_hex, func_name, trunc(max_error[][i].val, digits=10),
-                          reinterpret(Err.uint_formats[data_format],
-                                      Err.formats[data_format](max_input[][i].val)),
-                          reinterpret(Err.uint_formats[data_format],
-                                      Err.formats[data_format](max_output[][i].val)),
-                          sum([s.val for s in number_of_tests[]]),
-                          sum([s.val for s in number_of_infs[]]))
-            open("output/HEX_$task_name.txt", "a") do file_hex
-                write(file_hex, line);
-            end
+        open(file_hex, "a") do io
+            Printf.format(io, fe_hex, func_name, fastmath, max_error,
+                          reinterpret(Base.uinttype(T), r.input),
+                          reinterpret(Base.uinttype(T), r.output),
+                          r.ntests, r.ninfs, r.nfailures)
         end
     end
 end
+
 end
