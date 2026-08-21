@@ -1,25 +1,25 @@
-Function              ULPs                          Input                         Output                Tests
-exp2          0.7583902134             0xc08ff04ed8e27d99                0xf9423dfb95aaa          17256798232
-atan          0.8553926979             0x3fe6018bfec2fd65             0x3fe346fcfcc59eba          32516031340
-sqrt          0.4999999999             0x3fefffffffffffff             0x3fefffffffffffff           6123542462
-sinh          1.9222140065             0xc08633c654fee2ba             0xffefdf25fc26e7c0           5011718176
-tan           1.0343104196             0x61ad9c40aaf8b865             0x3fe994d3f6a47236          15201528028
-asinh         1.5147514844             0xbfd02626a40e886f             0xbfcff6fc00511f9e          16060825430
-asin          0.8894035865             0x3fe04c226cfd504a             0x3fe119826b25ee82          30504758428
-cospi         0.9086478699             0xc0b586c01cdf3e82             0xbfe6a8a161a78fac          36901327528
-exp10         0.7584163735             0xc0733ad0d03cb2e1                0xf29d2913b9f22          12041505568
-acosh         1.9830515063             0x3ff01caaa7d17d8d             0x3fbe4514fe60a344          10176811300
-log10         0.5765028921             0x3ff1120198282929             0x3f9ccc0ab7a99774           7174377508
-sinpi         0.9040694538             0x4160240d689b54d1             0xbfe7ef33255201cc          18328927888
-exp           0.7552424845             0xc0862456ca17f30a                0xdd3bc12b3d632           9928848052
-cosh          1.9222140065             0xc08633c654fee2ba             0x7fefdf25fc26e7c0          14731985284
-cbrt          0.6670074538             0x65429cf33efe4183             0x4c60d3d6ac504afd          10223491948
-log           0.5533034639             0x3ff12fc6b4cdb2f9             0x3fb250a0cc422970          14322321316
-atanh         1.9815960510             0x3f5ff7b3b3c11903             0x3f5ff7b65c59a02d          14891418904
-log1p         0.5676387404             0x3fb2fc6869b77be9             0x3fb2509e1c26d8de           8786300692
-log2          0.5944690808             0x3ff14fbbf806c691             0x3fbd188986df6785          10719598564
-tanpi         2.4448977865             0xc02c7f0c2e92c665             0xbfefa0cede441c20          23792646028
-acos          0.8944558604             0xbfe0c33b5c9e4d8c             0x4000fa24613c831a          14900840032
-tanh          1.5838537925             0x3fe016b1c4966ed7             0x3fddb6fa4aaaeaf6          16660035628
-cos           0.8291325778             0x441b74f640db703c             0xbfe6af004ca48f30           8413416184
-sin           0.8251112297             0x6dfb0ab9d7cf7371             0x3fe7139d4711fdac          11841364072
+Function   Fastmath            ULPs                          Input                         Output                Tests                 Infs             Failures
+acos          false    0.8981716899             0xbfe0a3b89e5d2533             0x4000f0e826ec2a2c          35945660999                    0                    0
+acosh         false    2.0717162169             0x3ff007a1c706f714             0x3faf4018202c9e30          55465027428                    0                    0
+asin          false    0.9112849875             0x3fe01f09762d427f             0x3fe0e5347e60eb60         109845841840                    0                    0
+asinh         false    1.5675679493             0x3fe09c8648c9d7e0             0x3fdfe319501a61a9          76942318515                    0                    0
+atan          false    0.8546809703             0xbfe6170e17cba99d             0xbfe35592a2dc67fe         131619455348                    0                    0
+atanh         false    1.9824702102             0x3f5ff99856eb58fa             0x3f5ff99afffcd164          95805066037                    0                    0
+cbrt          false    0.6670587791             0x1ef1dd7d6c03bcae             0x34f09959b1af536b         120581638162                    0                    0
+cos           false    0.8342508984             0xe53842e9244a90f7             0xbfe6d718112e9654         104850322267                    0                    0
+cosh          false    1.9222140065             0xc08633c654fee2ba             0x7fefdf25fc26e7c0         113447436005                    0                    0
+cospi         false    0.9086853433             0xc165af6af82a14c9             0x3fe6fd5760cf413e         125638943760                    0                    0
+exp           false    0.7599641828             0xc086236125f6a5bf                0xf96cedc5cc2d6         373340358238                    0                    0
+exp10         false    0.7599682349             0xc0733a76d7e9ad31                0xff33410c776c4         199397542878                    0                    0
+exp2          false    0.7597096111             0xc08ff0695ed50428                0xf707fe3ecfe7a         262971954784                    0                    0
+log           false    0.5556398302             0x3ff130dfce1be78d             0x3fb260fb53fbae26          58820376519                    0                    0
+log10         false    0.5839806728             0x3ff112e66ae00811             0x3f9ce3536c4545ca          28816371840                    0                    0
+log1p         false    0.5628711158             0x3fb10715d82eec14             0x3fb07c3d04811a36          85684777861                    0                    0
+log2          false    0.5981813131             0x3ff112c88840049b             0x3fb7fb28f1698e53          30838755843                    0                    0
+sin           false    0.8303157377             0x430ee587cfd8b1fb             0x3fe6d86dc8f8c06c         110288968550                    0                    0
+sinh          false    1.9329655205             0x408633c1ef870d46             0x7fefcda6f9a5af4d         106683882191                    0                    0
+sinpi         false    0.9101579888             0x4146ceb1de91aca4             0xbfe768728d6d3d94         100385374571                    0                    0
+sqrt          false    0.4999999999             0x3fefffffffffffff             0x3fefffffffffffff         121372563006                    0                    0
+tan           false    1.0863515967             0xe20ffb6769094dec             0xbfe995035cde0058          98509753314                    0                    0
+tanh          false    1.5867232978             0x3fe005a26c5e03ac             0x3fdd9c2fe6a7e6ca         113300727576                    0                    0
+tanpi         false    2.4604355168             0xc0c46be02be31e63             0x3fefbb59c24f770c          42168871561             20600327                    0
