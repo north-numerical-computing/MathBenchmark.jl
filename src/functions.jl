@@ -193,7 +193,7 @@ binary64_functions_spec_inputs["sin"]   = [-0x1.f8b791cafcdefp+4, -0x1.0e16eb809
                                            0x1.2bf085ea1cc22p-18, 0x1.2bf60953039e1p-4]
 binary64_functions_spec_inputs["sinh"]  = [-0x1.633c654fee2bap+9, -0x1.adc135eb544c1p-2,
                                            0x1.11cee83f97d7dp+4, 0x1.120276d078a45p-17]
-binary64_functions_spec_inputs["sqrt"]  = [0x1.fffffffffffffp-1, 0x1.fffffffffffffp-1]
+binary64_functions_spec_inputs["sqrt"]  = [0x1.fffffffffffffp-1]
 binary64_functions_spec_inputs["tan"]   = [-0x1.317cd745dd37cp+9, 0x1.49adfd996a81dp+18,
                                            0x1.0484a223bae5ap-18, 0x1.049587001c4a9p-23]
 binary64_functions_spec_inputs["tanh"]  = [0x1.e126eee514cbcp-3, 0x1.002629fd74484p+0,
